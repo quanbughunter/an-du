@@ -6,8 +6,9 @@ SDK=/usr/lib/android-sdk/platforms/android-23/android.jar
 [ -f "$SDK" ] || SDK=$(ls /usr/lib/android-sdk/platforms/*/android.jar | head -1)
 OUT=out; rm -rf "$OUT"; mkdir -p "$OUT"/{gen,obj,assets/www}
 cp ../dist/apk-www/index.html "$OUT/assets/www/index.html"
-VERSION_NAME=${VERSION_NAME:-1.0.0}; VERSION_CODE=${VERSION_CODE:-1}
-aapt package -f -m -J "$OUT/gen" -M AndroidManifest.xml -S res -A "$OUT/assets" -I "$SDK" \
+VERSION_NAME=${VERSION_NAME:-1.0.1}; VERSION_CODE=${VERSION_CODE:-2}
+sed -E "s/android:versionCode=\"[0-9]+\"/android:versionCode=\"$VERSION_CODE\"/; s/android:versionName=\"[^\"]+\"/android:versionName=\"$VERSION_NAME\"/" AndroidManifest.xml > "$OUT/AndroidManifest.xml"
+aapt package -f -m -J "$OUT/gen" -M "$OUT/AndroidManifest.xml" -S res -A "$OUT/assets" -I "$SDK" \
   --min-sdk-version 21 --target-sdk-version 34 --version-code "$VERSION_CODE" --version-name "$VERSION_NAME" \
   -F "$OUT/app.unsigned.apk"
 javac -nowarn -Xlint:-options -source 8 -target 8 -encoding UTF-8 -bootclasspath "$SDK" -d "$OUT/obj" \

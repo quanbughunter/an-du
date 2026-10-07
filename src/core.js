@@ -236,7 +236,7 @@ let S = null;
 function blankState() {
   return {
     v: 1, demo: false,
-    profile: { set: false, name: '', sex: 'f', age: 25, height: 160, weight: 55, act: 1.375, goal: 'keep', rate: 0.5, style: 'balanced', custom: { c: 50, p: 20, f: 30 }, tw: '' },
+    profile: { set: false, goalSet: false, startW: null, name: '', sex: 'f', age: 25, height: 160, weight: 55, act: 1.375, goal: 'keep', rate: 0.5, style: 'balanced', custom: { c: 50, p: 20, f: 30 }, tw: '' },
     settings: { theme: 'auto', burnBack: true, view: 'list' },
     custom: [], fav: [], recent: [], weights: [], days: {},
     meta: {}
@@ -248,7 +248,7 @@ function entryFrom(food, g, meal) {
 function demoState() {
   const st = blankState();
   st.demo = true;
-  st.profile = { set: true, name: 'Minh (mẫu)', sex: 'm', age: 28, height: 170, weight: 72, act: 1.55, goal: 'lose', rate: 0.5, style: 'balanced', custom: { c: 50, p: 20, f: 30 }, tw: 66 };
+  st.profile = { set: true, goalSet: true, startW: 73.4, name: 'Minh (mẫu)', sex: 'm', age: 28, height: 170, weight: 72, act: 1.55, goal: 'lose', rate: 0.5, style: 'balanced', custom: { c: 50, p: 20, f: 30 }, tw: 66 };
   const menus = {
     A: [['Phở bò', 500, 's'], ['Cơm trắng', 300, 't'], ['Cá kho', 150, 't'], ['Rau muống xào tỏi', 200, 't'], ['Chuối', 100, 't'], ['Cơm trắng', 150, 'c'], ['Ức gà (chín)', 150, 'c'], ['Canh rau', 250, 'c'], ['Sữa chua không đường', 100, 'c'], ['Hạt điều', 30, 'p']],
     B: [['Xôi xéo', 200, 's'], ['Cà phê sữa đá', 200, 's'], ['Cơm tấm sườn', 400, 't'], ['Trà sữa trân châu', 500, 'p'], ['Bún chả', 450, 'c'], ['Bia', 330, 'c']],
@@ -329,7 +329,9 @@ function touch(k) {
 function normalizeState(st) {
   const b = blankState();
   const o = Object.assign(b, st || {});
+  const hadGoal = st && st.profile && st.profile.goalSet !== undefined;
   o.profile = Object.assign(blankState().profile, o.profile || {});
+  if (!hadGoal) o.profile.goalSet = !!o.profile.set;
   o.settings = Object.assign(blankState().settings, o.settings || {});
   ['custom', 'fav', 'recent', 'weights'].forEach((k) => { if (!Array.isArray(o[k])) o[k] = []; });
   if (!o.days || typeof o.days !== 'object') o.days = {};

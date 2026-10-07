@@ -36,7 +36,7 @@ cp -r dist/www/index.html dist/www/sw.js dist/www/manifest.webmanifest .   # c�
 ```bash
 sudo apt install aapt apksigner zipalign android-sdk-platform-23 dalvik-exchange openjdk-17-jdk
 python3 build.py
-VERSION_NAME=1.0.1 VERSION_CODE=2 ./android/build_apk.sh     # → android/out/AnDu-1.0.1.apk
+VERSION_NAME=1.0.2 VERSION_CODE=3 ./android/build_apk.sh     # → android/out/AnDu-1.0.2.apk
 ```
 
 Lần build đầu tiên tạo khoá ký `android/keystore/` (đã bị `.gitignore` chặn). **Giữ khoá này cẩn thận**: muốn cập nhật app đã cài mà không mất dữ liệu thì bản mới phải ký bằng đúng khoá cũ và có `VERSION_CODE` lớn hơn.

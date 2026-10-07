@@ -356,7 +356,7 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.45; }
 .mtargets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .mt { border-radius: 16px; padding: 10px; background: var(--mc-soft); min-width: 0; }
 .mt b { display: block; font-family: var(--font-display); font-size: 21px; line-height: 1.1; }
-.mt span { font-size: 12px; color: var(--ink-2); }
+.mt > span { font-size: 12px; color: var(--ink-2); }
 .formula { font-size: 12.5px; color: var(--ink-2); line-height: 1.55; }
 .formula code { font-family: inherit; font-weight: 700; color: var(--ink); }
 
@@ -476,3 +476,85 @@ textarea.input { resize: vertical; min-height: 96px; line-height: 1.45; }
 }
 .plate-rim.anim { animation: draw 1s cubic-bezier(.2,.8,.2,1) both; }
 @keyframes draw { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
+
+/* ---------- Hồ sơ tương tác ---------- */
+.me-card, .goal-card { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: 0; border-radius: var(--r-lg); padding: 16px; background: var(--surface); box-shadow: var(--shadow-sm); color: var(--ink); transition: transform .12s ease, box-shadow .2s ease; }
+.me-card:hover, .goal-card:hover { box-shadow: var(--shadow); }
+.me-card:active, .goal-card:active { transform: scale(.985); }
+.me-avatar { width: 56px; height: 56px; border-radius: 20px; flex: none; display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; font-size: 26px; color: var(--ink); background: linear-gradient(135deg, var(--pro-soft), var(--pink-soft)); }
+.me-main, .goal-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.me-main b { font-family: var(--font-display); font-size: 21px; line-height: 1.15; }
+.me-main span, .goal-main > span { font-size: 13.5px; color: var(--ink-2); }
+.me-main em { font-style: normal; align-self: flex-start; margin-top: 4px; font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); }
+.edit-hint { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 700; color: var(--ink-2); flex: none; }
+.me-card.empty { border: 1.5px dashed var(--line); box-shadow: none; }
+.goal-card { align-items: flex-start; background: var(--tone-soft, var(--surface)); padding: 18px 16px; }
+.goal-card .goal-ic { margin-top: 2px; }
+.goal-ic { width: 46px; height: 46px; border-radius: 16px; flex: none; display: grid; place-items: center; background: var(--surface); color: var(--tone, var(--ink)); }
+.goal-ic .icon { stroke-width: 2.6; }
+.goal-main .eyebrow { font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
+.goal-main b { font-family: var(--font-display); font-size: 26px; line-height: 1.1; }
+.tone-sky { --tone: var(--sky); --tone-soft: var(--sky-soft); }
+.tone-fib { --tone: var(--fib); --tone-soft: var(--fib-soft); }
+.tone-peach { --tone: var(--peach); --tone-soft: var(--peach-soft); }
+.goal-card.empty { --tone-soft: var(--brand-soft); border: 1.5px dashed var(--brand); box-shadow: none; }
+.goal-card.empty .goal-ic { background: var(--brand); color: #fff; }
+.goal-card.empty b { font-size: 22px; }
+.goal-prog { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; font-size: 12.5px; color: var(--ink-2); }
+.goal-prog .bar { position: relative; height: 8px; border-radius: 999px; background: var(--surface); overflow: hidden; }
+.goal-prog .bar b { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--tone, var(--ok)); }
+
+.targets { display: flex; flex-direction: column; gap: 12px; }
+.targets .card-head { margin-bottom: 0; }
+.tg-big { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.tg-big b { font-family: var(--font-display); font-weight: 800; font-size: 52px; line-height: .95; letter-spacing: -.02em; }
+.tg-big span { color: var(--ink-2); font-weight: 600; }
+.tg-eq { display: flex; flex-wrap: wrap; gap: 6px; font-size: 13px; }
+.tg-eq span { padding: 4px 10px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); font-weight: 600; }
+.tg-eq .tg-eq-res { background: var(--brand-soft); color: var(--ink); }
+.mix { display: flex; height: 10px; border-radius: 999px; overflow: hidden; gap: 2px; background: var(--surface-2); }
+.mix i { display: block; min-width: 2px; }
+.targets .warn { margin: 0; }
+.targets.reveal { animation: pop .75s cubic-bezier(.2,.8,.2,1); }
+@keyframes pop {
+  0% { transform: scale(.96); box-shadow: 0 0 0 0 var(--brand); }
+  45% { transform: scale(1.01); box-shadow: 0 0 0 8px var(--brand-soft); }
+  100% { transform: none; box-shadow: var(--shadow-sm); }
+}
+details.how { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+details.how summary { cursor: pointer; font-weight: 700; font-size: 14px; color: var(--ink); list-style: none; display: flex; align-items: center; justify-content: space-between; }
+details.how summary::-webkit-details-marker { display: none; }
+details.how summary::after { content: "+"; font-family: var(--font-display); font-size: 20px; color: var(--ink-2); }
+details.how[open] summary::after { content: "−"; }
+details.how .formula { margin-top: 8px; }
+
+/* sheet hồ sơ & mục tiêu */
+.steps { display: flex; align-items: center; gap: 6px; margin-top: -6px; }
+.steps i { width: 28px; height: 6px; border-radius: 3px; background: var(--line); }
+.steps i.on { background: var(--brand); }
+.steps span { margin-left: 6px; font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
+.numfield { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; gap: 6px; align-items: center; }
+.numfield .iconbtn { width: 40px; height: 44px; border-radius: 12px; }
+.numfield .input { text-align: center; padding-left: 6px; padding-right: 34px; font-weight: 700; }
+.numfield .input-unit em { right: 8px; font-size: 12px; }
+@media (max-width: 560px) { .numgrid { grid-template-columns: 1fr; } }
+.goalopts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.goalopt { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; padding: 12px; border-radius: 18px; border: 2px solid transparent; background: var(--tone-soft); color: var(--ink); min-width: 0; }
+.goalopt .goal-ic { width: 38px; height: 38px; border-radius: 13px; margin-bottom: 4px; }
+.goalopt b { font-family: var(--font-display); font-size: 17px; line-height: 1.15; }
+.goalopt span:last-child { font-size: 12px; color: var(--ink-2); line-height: 1.35; }
+.goalopt[aria-pressed="true"] { border-color: var(--ink); box-shadow: var(--shadow-sm); }
+@media (max-width: 420px) { .goalopts { grid-template-columns: 1fr; } .goalopt { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 4px 10px; } .goalopt .goal-ic { margin: 0; } .goalopt span:last-child { flex-basis: 100%; padding-left: 48px; margin-top: -6px; } }
+.rates { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.rate { display: flex; flex-direction: column; align-items: flex-start; gap: 0; text-align: left; padding: 10px 12px; border-radius: 15px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); }
+.rate b { font-family: var(--font-display); font-size: 19px; line-height: 1.1; }
+.rate span { font-size: 12px; color: var(--ink-2); }
+.rate em { font-style: normal; font-size: 12px; font-weight: 700; color: var(--ink-2); margin-top: 4px; }
+.rate[aria-pressed="true"] { border-color: var(--ink); background: var(--surface-2); }
+.optcard.style > span { display: flex; flex-direction: column; gap: 2px; }
+.mixrow { display: flex !important; flex-direction: column; gap: 4px; margin-top: 6px; }
+.mixrow .num { font-size: 12px; color: var(--ink-2); }
+.sheet-foot .live { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; padding: 10px 12px; margin-bottom: 10px; border-radius: 14px; background: var(--surface-2); font-size: 13px; color: var(--ink-2); }
+.sheet-foot .live b { color: var(--ink); }
+.sheet-foot .live .big { font-family: var(--font-display); font-size: 26px; line-height: 1; }
+.sheet-foot .live .chip-st { margin-left: 4px; }

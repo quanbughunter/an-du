@@ -304,7 +304,7 @@ function renderToday() {
   const pill = { none: 'Chưa ghi', low: 'Thiếu', ok: 'Đủ', high: 'Thừa' }[info.st];
   const banner = S.demo
     ? `<div class="demo"><p><b>Đây là dữ liệu mẫu</b> để bạn xem thử cách app hoạt động.</p><button class="btn primary sm" data-action="start-real">Bắt đầu của tôi</button></div>`
-    : !S.profile.set ? `<div class="demo"><p><b>Nhập hồ sơ</b> (tuổi, cân nặng, chiều cao, mức vận động) để có mục tiêu riêng cho bạn.</p><button class="btn primary sm" data-nav="profile">Nhập hồ sơ</button></div>` : '';
+    : !S.profile.set || !S.profile.goalSet ? `<div class="demo"><p><b>${S.profile.set ? 'Đặt mục tiêu' : 'Nhập hồ sơ'}</b> để app tính lượng calo, carb, đạm, béo phù hợp riêng cho bạn.</p><button class="btn primary sm" data-action="${S.profile.set ? 'edit-goal' : 'setup'}">${S.profile.set ? 'Đặt mục tiêu' : 'Bắt đầu'}</button></div>` : '';
   $('#v-today').innerHTML = `
     <div class="topbar"><div class="wordmark"><span class="wordmark-dot" aria-hidden="true"></span>Ăn Đủ</div>
       <button class="avatar" data-nav="profile" aria-label="Hồ sơ">${name ? esc(name[0].toUpperCase()) : ic('i-user', 'sm')}</button></div>
@@ -480,63 +480,99 @@ function renderProgress() {
 }
 
 // ---------- Hồ sơ ----------
-function profileResultsHTML() {
+const GOAL_META = {
+  lose: { icon: 'i-down', name: 'Giảm cân', desc: 'Ăn ít hơn TDEE để giảm mỡ', tone: 'sky' },
+  keep: { icon: 'i-check', name: 'Giữ cân', desc: 'Ăn bằng TDEE, giữ vóc dáng', tone: 'fib' },
+  gain: { icon: 'i-up', name: 'Tăng cân', desc: 'Ăn nhiều hơn TDEE để tăng cân', tone: 'peach' }
+};
+const cloneP = (p) => JSON.parse(JSON.stringify(p));
+const pctOf = (T) => ({ c: Math.round(T.c * 4 / T.k * 100), p: Math.round(T.p * 4 / T.k * 100), f: Math.round(T.f * 9 / T.k * 100) });
+const mixBar = (T) => { const q = pctOf(T); return `<span class="mix" aria-hidden="true"><i style="flex:${q.c};background:var(--carb)"></i><i style="flex:${q.p};background:var(--pro)"></i><i style="flex:${q.f};background:var(--fat)"></i></span>`; };
+function goalLine(p) {
+  if (p.goal === 'keep') return 'Ăn bằng TDEE mỗi ngày';
+  return `${fq(p.rate)} kg/tuần${p.tw ? ` · đích ${NF1.format(+p.tw)} kg` : ''}`;
+}
+function meCardHTML() {
+  const p = S.profile, name = (p.name || '').trim();
+  const act = ACT_LEVELS.find((a) => a.v === +p.act) || ACT_LEVELS[1];
+  if (!p.set) {
+    return `<button class="me-card empty" data-action="setup"><span class="me-avatar">${ic('i-user')}</span>
+      <span class="me-main"><b>Nhập thông tin của bạn</b><span>Tuổi, chiều cao, cân nặng và mức vận động — mất khoảng 1 phút.</span></span>${ic('i-right')}</button>`;
+  }
+  return `<button class="me-card" data-action="edit-me" aria-label="Sửa thông tin cá nhân">
+    <span class="me-avatar">${name ? esc(name[0].toUpperCase()) : ic('i-user')}</span>
+    <span class="me-main"><b>${esc(name || 'Bạn')}</b><span class="num">${p.sex === 'm' ? 'Nam' : 'Nữ'} · ${p.age} tuổi · ${fq(p.height)} cm · ${NF1.format(+p.weight)} kg</span><em>${act.name}</em></span>
+    <span class="edit-hint">Sửa ${ic('i-right', 'sm')}</span></button>`;
+}
+function goalCardHTML() {
+  const p = S.profile;
+  if (!p.goalSet) {
+    return `<button class="goal-card empty" data-action="edit-goal"><span class="goal-ic">${ic('i-plus')}</span>
+      <span class="goal-main"><b>Đặt mục tiêu</b><span>Chọn giảm, giữ hay tăng cân. Bấm OK là app tính ngay lượng calo, carb, đạm, béo mỗi ngày cho bạn.</span></span></button>`;
+  }
+  const g = GOAL_META[p.goal], c = calc(p);
+  let prog = '';
+  const tw = +p.tw, w = +p.weight, sw = +p.startW || w;
+  if (p.goal !== 'keep' && tw && sw !== tw) {
+    const done = p.goal === 'lose' ? sw - w : w - sw, total = Math.abs(sw - tw);
+    const r = clamp(done / total, 0, 1);
+    prog = `<span class="goal-prog"><span class="bar"><b style="width:${(r * 100).toFixed(1)}%"></b></span>
+      <span class="num">${done > 0 ? `Đã ${p.goal === 'lose' ? 'giảm' : 'tăng'} ${NF1.format(done)} / ${NF1.format(total)} kg` : `Còn ${NF1.format(total)} kg để đạt mục tiêu`}${c.eta ? ` · khoảng ${c.eta} tuần nữa` : ''}</span></span>`;
+  }
+  return `<button class="goal-card tone-${g.tone}" data-action="edit-goal" aria-label="Sửa mục tiêu">
+    <span class="goal-ic">${ic(g.icon)}</span>
+    <span class="goal-main"><span class="eyebrow">Mục tiêu</span><b>${g.name}</b><span class="num">${goalLine(p)}</span>${prog}</span>
+    <span class="edit-hint">Sửa ${ic('i-right', 'sm')}</span></button>`;
+}
+function targetsPanelHTML() {
+  const p = S.profile;
+  if (!p.goalSet) return '';
+  const c = calc(p), T = c.t, q = pctOf(T);
+  const sign = c.delta < 0 ? '−' : '+';
+  return `<section class="card targets" id="targets-panel" aria-live="polite">
+    <div class="card-head"><h2>Mục tiêu dinh dưỡng mỗi ngày</h2></div>
+    <div class="tg-big"><b class="num" data-count="k">${fk(T.k)}</b><span>kcal mỗi ngày</span></div>
+    <div class="tg-eq num"><span>TDEE ${fk(c.tdee)}</span>${p.goal === 'keep' ? '' : `<span>${sign} ${fk(Math.abs(c.delta))}</span>`}<span class="tg-eq-res">= ${fk(T.k)} kcal</span></div>
+    ${mixBar(T)}
+    <div class="mtargets">
+      <div class="mt m-carb"><b class="num"><span data-count="c">${T.c}</span> g</b><span>Carb ${q.c}%</span></div>
+      <div class="mt m-pro"><b class="num"><span data-count="p">${T.p}</span> g</b><span>Đạm ${q.p}%</span></div>
+      <div class="mt m-fat"><b class="num"><span data-count="f">${T.f}</span> g</b><span>Béo ${q.f}%</span></div>
+      <div class="mt m-fib"><b class="num"><span data-count="x">${T.x}</span> g</b><span>Chất xơ</span></div>
+    </div>
+    <p class="hint">Kiểu phân bổ: <b>${STYLES[p.style].name}</b>. Nước: khoảng ${NF1.format(c.water)} lít mỗi ngày.</p>
+    ${c.notes.map((n) => `<p class="warn">${n}</p>`).join('')}
+  </section>`;
+}
+function bodyCardHTML() {
   const p = S.profile, c = calc(p);
   const pos = clamp((c.bmi - 15) / (35 - 15), 0, 1);
-  const T = c.t;
-  return `<section class="card"><div class="card-head"><h2>Chỉ số của bạn</h2><span class="chip-st" data-st="${c.cat.st}">${c.cat.name}</span></div>
-      <div class="stats">
-        <div class="stat hero"><div><span>Mục tiêu mỗi ngày</span><b class="num">${fk(T.k)} kcal</b></div><span class="small" style="text-align:right">${GOALS[p.goal]}${p.goal !== 'keep' ? `<br>${fq(p.rate)} kg/tuần` : ''}</span></div>
-        <div class="stat"><b class="num">${NF1.format(c.bmi)}</b><span>BMI</span></div>
-        <div class="stat"><b class="num">${fk(c.bmr)}</b><span>BMR (kcal)</span></div>
-        <div class="stat"><b class="num">${fk(c.tdee)}</b><span>TDEE (kcal)</span></div>
-      </div>
-      <div class="bmi"><div class="bmi-wrap"><div class="bmi-pin" style="left:${(pos * 100).toFixed(1)}%"><b class="num">${NF1.format(c.bmi)}</b></div>
-        <div class="bmi-scale" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></div>
-        <div class="bmi-ticks" aria-hidden="true">${[18.5, 23, 25, 30].map((v) => `<span style="left:${((v - 15) / 20 * 100).toFixed(1)}%">${NF1.format(v)}</span>`).join('')}</div>
-        <div class="legend">${[['var(--sky)', 'Thiếu cân'], ['var(--ok)', 'Bình thường'], ['var(--fat)', 'Thừa cân'], ['var(--low)', 'Béo phì I'], ['var(--high)', 'Béo phì II']].map(([c, n]) => `<span><i style="background:${c}"></i>${n}</span>`).join('')}</div>
-      </div>
-      <p class="hint" style="margin-top:10px">Cân nặng hợp lý với chiều cao của bạn: <b>${fg(c.ideal[0])}–${fg(c.ideal[1])} kg</b> (BMI 18,5–22,9 theo chuẩn người châu Á). ${c.eta ? `Đạt ${fg(+p.tw)} kg sau khoảng <b>${c.eta} tuần</b>.` : ''}</p>
-      ${c.notes.map((n) => `<p class="warn" style="margin-top:10px">${n}</p>`).join('')}
-    </section>
-    <section class="card"><div class="card-head"><h2>Mục tiêu dinh dưỡng</h2><span class="muted small">mỗi ngày</span></div>
-      <div class="mtargets">
-        <div class="mt m-carb"><b class="num">${T.c} g</b><span>Carb ${Math.round(T.c * 4 / T.k * 100)}%</span></div>
-        <div class="mt m-pro"><b class="num">${T.p} g</b><span>Đạm ${Math.round(T.p * 4 / T.k * 100)}%</span></div>
-        <div class="mt m-fat"><b class="num">${T.f} g</b><span>Béo ${Math.round(T.f * 9 / T.k * 100)}%</span></div>
-        <div class="mt m-fib"><b class="num">${T.x} g</b><span>Chất xơ</span></div>
-      </div>
-      <p class="formula" style="margin-top:12px">BMR theo công thức Mifflin–St Jeor: <code>10 × cân nặng + 6,25 × chiều cao − 5 × tuổi ${p.sex === 'm' ? '+ 5' : '− 161'}</code>. TDEE = BMR × hệ số vận động (${NF2.format(+p.act)}). ${p.goal === 'keep' ? 'Giữ cân: ăn bằng TDEE.' : `${GOALS[p.goal]} ${fq(p.rate)} kg/tuần: ${p.goal === 'lose' ? 'bớt' : 'thêm'} ${fk(Math.abs(c.delta))} kcal/ngày (1 kg mỡ ≈ 7.700 kcal).`} Chất xơ: 14 g cho mỗi 1.000 kcal. Nước: khoảng ${NF1.format(c.water)} lít/ngày.</p>
-    </section>`;
+  return `<section class="card"><div class="card-head"><h2>Chỉ số cơ thể</h2><span class="chip-st" data-st="${c.cat.st}">${c.cat.name}</span></div>
+    <div class="bmi"><div class="bmi-wrap"><div class="bmi-pin" style="left:${(pos * 100).toFixed(1)}%"><b class="num">${NF1.format(c.bmi)}</b></div>
+      <div class="bmi-scale" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></div>
+      <div class="bmi-ticks" aria-hidden="true">${[18.5, 23, 25, 30].map((v) => `<span style="left:${((v - 15) / 20 * 100).toFixed(1)}%">${NF1.format(v)}</span>`).join('')}</div>
+      <div class="legend">${[['var(--sky)', 'Thiếu cân'], ['var(--ok)', 'Bình thường'], ['var(--fat)', 'Thừa cân'], ['var(--low)', 'Béo phì I'], ['var(--high)', 'Béo phì II']].map(([col, n]) => `<span><i style="background:${col}"></i>${n}</span>`).join('')}</div>
+    </div>
+    <div class="stats" style="margin-top:14px">
+      <div class="stat"><b class="num">${NF1.format(c.bmi)}</b><span>BMI</span></div>
+      <div class="stat"><b class="num">${fk(c.bmr)}</b><span>BMR (kcal)</span></div>
+      <div class="stat"><b class="num">${fk(c.tdee)}</b><span>TDEE (kcal)</span></div>
+    </div>
+    <p class="hint" style="margin-top:10px">Cân nặng hợp lý với chiều cao của bạn: <b>${fg(c.ideal[0])}–${fg(c.ideal[1])} kg</b> (BMI 18,5–22,9, chuẩn người châu Á).</p>
+    <details class="how"><summary>Cách tính các chỉ số</summary>
+      <p class="formula">BMI = cân nặng ÷ chiều cao² (m). BMR theo Mifflin–St Jeor: <code>10 × cân nặng + 6,25 × chiều cao − 5 × tuổi ${p.sex === 'm' ? '+ 5' : '− 161'}</code>. TDEE = BMR × hệ số vận động (${NF2.format(+p.act)}). Giảm hoặc tăng 1 kg mỡ cần chênh khoảng 7.700 kcal, nên 0,5 kg/tuần ≈ 550 kcal/ngày. Chất xơ: 14 g cho mỗi 1.000 kcal. Nước: 35 ml cho mỗi kg cân nặng.</p>
+    </details>
+  </section>`;
 }
 function renderProfile() {
-  const p = S.profile;
-  const seg = (name, val, opts) => `<div class="seg wide" role="group">${opts.map(([v, n]) => `<button data-action="pset" data-k="${name}" data-v="${v}" aria-pressed="${String(val) === String(v)}">${n}</button>`).join('')}</div>`;
-  const rates = p.goal === 'gain' ? [0.25, 0.5] : [0.25, 0.5, 0.75, 1];
   const th = S.settings.theme;
   $('#v-profile').innerHTML = `<div class="topbar"><h1 style="font-size:28px">Hồ sơ</h1>${S.demo ? '<span class="chip-st" data-st="none">Dữ liệu mẫu</span>' : ''}</div>
   <div class="prof-grid">
-    <div class="prof-col" id="prof-results">${profileResultsHTML()}</div>
+    <div class="prof-col">${meCardHTML()}${goalCardHTML()}${targetsPanelHTML()}</div>
     <div class="prof-col">
-      <section class="card stack"><h2>Thông tin cá nhân</h2>
-        <div class="field"><label for="p-name">Tên gọi</label><input class="input" id="p-name" value="${esc(p.name)}" placeholder="Ví dụ: Hiển" autocomplete="off"></div>
-        <div class="field"><span>Giới tính</span>${seg('sex', p.sex, [['f', 'Nữ'], ['m', 'Nam']])}</div>
-        <div class="grid3">
-          <div class="field"><label for="p-age">Tuổi</label><div class="input-unit"><input class="input num" id="p-age" inputmode="numeric" value="${p.age}"><em>tuổi</em></div></div>
-          <div class="field"><label for="p-height">Chiều cao</label><div class="input-unit"><input class="input num" id="p-height" inputmode="decimal" value="${fq(p.height)}"><em>cm</em></div></div>
-          <div class="field"><label for="p-weight">Cân nặng</label><div class="input-unit"><input class="input num" id="p-weight" inputmode="decimal" value="${fq(p.weight)}"><em>kg</em></div></div>
-        </div>
-        <div class="field"><span>Mức vận động</span><div class="optcards">${ACT_LEVELS.map((a, i) => `<button class="optcard" data-action="pset" data-k="act" data-v="${a.v}" aria-pressed="${+p.act === a.v}"><span class="lvl" aria-hidden="true">${[0, 1, 2, 3, 4].map((j) => `<i class="${j <= i ? 'on' : ''}" style="height:${6 + j * 4}px"></i>`).join('')}</span><span><b>${a.name}</b><span>${a.desc}</span></span></button>`).join('')}</div></div>
-      </section>
-      <section class="card stack"><h2>Mục tiêu</h2>
-        ${seg('goal', p.goal, [['lose', 'Giảm cân'], ['keep', 'Giữ cân'], ['gain', 'Tăng cân']])}
-        ${p.goal !== 'keep' ? `<div class="field"><span>Tốc độ</span><div class="chips wrap">${rates.map((r) => `<button class="chip" data-action="pset" data-k="rate" data-v="${r}" aria-pressed="${+p.rate === r}">${fq(r)} kg/tuần</button>`).join('')}</div><p class="hint">${p.goal === 'lose' ? 'Giảm 0,25–0,5 kg/tuần là bền vững nhất.' : 'Tăng 0,25 kg/tuần giúp hạn chế tích mỡ.'}</p></div>
-        <div class="field"><label for="p-tw">Cân nặng mong muốn (không bắt buộc)</label><div class="input-unit"><input class="input num" id="p-tw" inputmode="decimal" value="${p.tw ? fq(p.tw) : ''}" placeholder="—"><em>kg</em></div></div>` : ''}
-        <div class="field"><span>Phân bổ dinh dưỡng</span><div class="optcards">${Object.entries(STYLES).map(([k, s]) => `<button class="optcard" data-action="pset" data-k="style" data-v="${k}" aria-pressed="${p.style === k}"><span><b>${s.name}</b><span>${s.desc}</span></span></button>`).join('')}</div></div>
-        ${p.style === 'custom' ? `<div class="grid3">${[['c', 'Carb'], ['p', 'Đạm'], ['f', 'Béo']].map(([k, n]) => `<div class="field"><label for="p-c${k}">${n}</label><div class="input-unit"><input class="input num" id="p-c${k}" data-pct="${k}" inputmode="numeric" value="${p.custom[k]}"><em>%</em></div></div>`).join('')}</div><p class="hint" id="pct-sum"></p>` : ''}
-      </section>
+      ${S.profile.set ? bodyCardHTML() : ''}
       <section class="card stack"><h2>Cài đặt</h2>
-        <div class="field"><span>Giao diện</span>${`<div class="seg wide" role="group">${[['auto', 'Theo máy'], ['light', 'Sáng'], ['dark', 'Tối']].map(([v, n]) => `<button data-action="theme" data-v="${v}" aria-pressed="${th === v}">${n}</button>`).join('')}</div>`}</div>
+        <div class="field"><span>Giao diện</span><div class="seg wide" role="group">${[['auto', 'Theo máy'], ['light', 'Sáng'], ['dark', 'Tối']].map(([v, n]) => `<button data-action="theme" data-v="${v}" aria-pressed="${th === v}">${n}</button>`).join('')}</div></div>
         <label class="switch"><span><b>Cộng calo vận động vào mục tiêu</b><br><span class="hint">Ghi 300 kcal vận động thì hôm đó được ăn thêm 300 kcal.</span></span><input type="checkbox" id="burnback" ${S.settings.burnBack ? 'checked' : ''}></label>
         <div class="row"><button class="btn" data-action="backup">${ic('i-download')}Sao lưu & khôi phục</button></div>
         ${UI.confirmReset ? `<div class="confirm"><b>Xoá toàn bộ nhật ký, hồ sơ và món tự tạo?</b><span class="small">Không thể hoàn tác. Hãy sao lưu trước nếu cần.</span><div class="row"><button class="btn danger" data-action="reset-yes">${ic('i-trash')}Xoá hết</button><button class="btn" data-action="reset-no">Giữ lại</button></div></div>` : `<button class="btn danger" data-action="reset-ask">${ic('i-trash')}Xoá toàn bộ dữ liệu</button>`}
@@ -547,14 +583,102 @@ function renderProfile() {
       </section>
     </div>
   </div>`;
-  updatePctSum();
 }
-function updatePctSum() {
-  const el = $('#pct-sum'); if (!el) return;
-  const c = S.profile.custom, sum = (+c.c || 0) + (+c.p || 0) + (+c.f || 0);
-  el.textContent = sum === 100 ? 'Tổng 100% — hợp lệ.' : `Tổng hiện là ${sum}%. App sẽ tự quy đổi theo tỉ lệ.`;
+// Hiệu ứng sau khi bấm OK: khung mục tiêu nảy nhẹ và các con số chạy từ giá trị cũ sang mới
+function revealTargets(oldT) {
+  const panel = $('#targets-panel'); if (!panel) return;
+  const T = calc(S.profile).t;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  panel.classList.remove('reveal'); void panel.offsetWidth; panel.classList.add('reveal');
+  try { panel.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' }); } catch (e) { panel.scrollIntoView(); }
+  if (reduce) return;
+  $$('[data-count]', panel).forEach((el) => {
+    const k = el.dataset.count, to = T[k], from = oldT ? oldT[k] : 0;
+    if (from === to) return;
+    const t0 = performance.now(), dur = 900;
+    const step = (now) => {
+      const r = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - r, 3);
+      el.textContent = k === 'k' ? fk(from + (to - from) * e) : Math.round(from + (to - from) * e);
+      if (r < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
 }
-function refreshProfileResults() { const el = $('#prof-results'); if (el) el.innerHTML = profileResultsHTML(); }
+
+// -- Sheet: thông tin cá nhân (nháp, chỉ lưu khi bấm Lưu / Tiếp tục)
+const numField = (id, k, val, unit, step, mode = 'decimal') => `<div class="numfield"><button class="iconbtn" data-action="dstep" data-k="${k}" data-d="-${step}" aria-label="Giảm">${ic('i-minus')}</button>
+  <div class="input-unit"><input class="input num" id="${id}" data-d-k="${k}" inputmode="${mode}" value="${val === '' || val == null ? '' : fq(val)}" placeholder="—"><em>${unit}</em></div>
+  <button class="iconbtn" data-action="dstep" data-k="${k}" data-d="${step}" aria-label="Tăng">${ic('i-plus')}</button></div>`;
+function meSheetHTML(st) {
+  const d = st.d;
+  const setup = st.flow === 'setup';
+  return `${topBar(setup ? 'Thông tin của bạn' : 'Sửa thông tin cá nhân')}
+    ${setup ? '<div class="steps" aria-label="Bước 1 trên 2"><i class="on"></i><i></i><span>Bước 1/2</span></div>' : ''}
+    <div class="field"><label for="d-name">Tên gọi</label><input class="input" id="d-name" data-d-k="name" value="${esc(d.name)}" placeholder="Ví dụ: Hiển" autocomplete="off"></div>
+    <div class="field"><span>Giới tính</span><div class="seg wide" role="group">${[['f', 'Nữ'], ['m', 'Nam']].map(([v, n]) => `<button data-action="dset" data-k="sex" data-v="${v}" aria-pressed="${d.sex === v}">${n}</button>`).join('')}</div></div>
+    <div class="grid3 numgrid">
+      <div class="field"><label for="d-age">Tuổi</label>${numField('d-age', 'age', d.age, 'tuổi', 1, 'numeric')}</div>
+      <div class="field"><label for="d-height">Chiều cao</label>${numField('d-height', 'height', d.height, 'cm', 1)}</div>
+      <div class="field"><label for="d-weight">Cân nặng</label>${numField('d-weight', 'weight', d.weight, 'kg', 0.5)}</div>
+    </div>
+    <div class="field"><span>Mức vận động</span><div class="optcards">${ACT_LEVELS.map((a, i) => `<button class="optcard" data-action="dset" data-k="act" data-v="${a.v}" aria-pressed="${+d.act === a.v}"><span class="lvl" aria-hidden="true">${[0, 1, 2, 3, 4].map((j) => `<i class="${j <= i ? 'on' : ''}" style="height:${6 + j * 4}px"></i>`).join('')}</span><span><b>${a.name}</b><span>${a.desc}</span></span></button>`).join('')}</div></div>
+    <div class="sheet-foot"><div class="live num" id="me-live"></div>
+      <div class="row"><button class="btn" data-action="close-sheet">Huỷ</button><button class="btn primary" style="flex:1" data-action="me-commit">${setup ? 'Tiếp tục' : 'Lưu'}</button></div></div>`;
+}
+function updateMeLive() {
+  const el = $('#me-live'); if (!el) return;
+  const c = calc(UI.sheet.d);
+  el.innerHTML = `<span>BMI <b>${NF1.format(c.bmi)}</b> <span class="chip-st" data-st="${c.cat.st}">${c.cat.name}</span></span><span>TDEE <b>${fk(c.tdee)}</b> kcal</span>`;
+}
+
+// -- Sheet: mục tiêu (nháp, chỉ áp dụng khi bấm OK)
+function goalSheetHTML(st) {
+  const d = st.d, setup = st.flow === 'setup';
+  const rates = d.goal === 'gain' ? [0.25, 0.5] : [0.25, 0.5, 0.75, 1];
+  const c = calc(d);
+  return `${topBar(setup ? 'Mục tiêu của bạn' : 'Sửa mục tiêu', setup ? 'sheet-back' : '')}
+    ${setup ? '<div class="steps" aria-label="Bước 2 trên 2"><i class="on"></i><i class="on"></i><span>Bước 2/2</span></div>' : ''}
+    <div class="goalopts" role="group" aria-label="Mục tiêu">${Object.entries(GOAL_META).map(([k, g]) => `<button class="goalopt tone-${g.tone}" data-action="dset" data-k="goal" data-v="${k}" aria-pressed="${d.goal === k}"><span class="goal-ic">${ic(g.icon)}</span><b>${g.name}</b><span>${g.desc}</span></button>`).join('')}</div>
+    ${d.goal !== 'keep' ? `<div class="field"><span>Tốc độ</span><div class="rates">${rates.map((r) => `<button class="rate" data-action="dset" data-k="rate" data-v="${r}" aria-pressed="${+d.rate === r}"><b class="num">${fq(r)} kg</b><span class="num">mỗi tuần</span><em class="num">${d.goal === 'lose' ? '−' : '+'}${fk(r * 1100)} kcal/ngày</em></button>`).join('')}</div>
+      <p class="hint">${d.goal === 'lose' ? 'Giảm 0,25–0,5 kg mỗi tuần là bền vững nhất, ít mất cơ.' : 'Tăng 0,25 kg mỗi tuần giúp hạn chế tích mỡ.'}</p></div>
+    <div class="field"><label for="d-tw">Cân nặng mong muốn (không bắt buộc)</label>${numField('d-tw', 'tw', d.tw, 'kg', 0.5)}<p class="hint" id="tw-hint"></p></div>` : ''}
+    <div class="field"><span>Phân bổ dinh dưỡng</span><div class="optcards">${Object.entries(STYLES).map(([k, s]) => {
+      const T = calc(Object.assign({}, d, { style: k })).t, q = pctOf(T);
+      return `<button class="optcard style" data-action="dset" data-k="style" data-v="${k}" aria-pressed="${d.style === k}"><span style="flex:1;min-width:0"><b>${s.name}</b><span>${s.desc}</span><span id="mix-${k}" class="mixrow">${mixBar(T)}<span class="num">C ${q.c}% · Đ ${q.p}% · B ${q.f}%</span></span></span></button>`;
+    }).join('')}</div></div>
+    ${d.style === 'custom' ? `<div class="grid3">${[['c', 'Carb'], ['p', 'Đạm'], ['f', 'Béo']].map(([k, n]) => `<div class="field"><label for="d-c${k}">${n}</label><div class="input-unit"><input class="input num" id="d-c${k}" data-pct="${k}" inputmode="numeric" value="${d.custom[k]}"><em>%</em></div></div>`).join('')}</div><p class="hint" id="pct-sum"></p>` : ''}
+    <div class="sheet-foot"><div class="live num" id="goal-live"></div>
+      <div class="row"><button class="btn" data-action="${setup ? 'sheet-back' : 'close-sheet'}">${setup ? 'Quay lại' : 'Huỷ'}</button><button class="btn brand" style="flex:1" data-action="goal-commit">${ic('i-check')}OK, áp dụng</button></div></div>`;
+}
+function updateGoalLive() {
+  const st = UI.sheet, d = st.d, el = $('#goal-live'); if (!el) return;
+  const c = calc(d), T = c.t;
+  el.innerHTML = `<span><b class="big">${fk(T.k)}</b> kcal/ngày</span><span>C <b>${T.c}</b> · Đ <b>${T.p}</b> · B <b>${T.f}</b> · Xơ <b>${T.x}</b> g</span>`;
+  const h = $('#tw-hint');
+  if (h) {
+    const tw = +d.tw, w = +d.weight;
+    let msg = `Khoảng hợp lý với chiều cao của bạn: ${fg(c.ideal[0])}–${fg(c.ideal[1])} kg.`;
+    if (tw) {
+      if (d.goal === 'lose' && tw >= w) msg = `Để giảm cân, cân nặng mong muốn cần nhỏ hơn hiện tại (${NF1.format(w)} kg).`;
+      else if (d.goal === 'gain' && tw <= w) msg = `Để tăng cân, cân nặng mong muốn cần lớn hơn hiện tại (${NF1.format(w)} kg).`;
+      else if (c.eta) { const day = new Date(); day.setDate(day.getDate() + c.eta * 7); msg = `Khoảng ${c.eta} tuần, tới khoảng ${day.getDate()}/${day.getMonth() + 1}/${day.getFullYear()}. ` + msg; }
+    }
+    h.textContent = msg;
+  }
+  Object.keys(STYLES).forEach((k) => {
+    const m = $('#mix-' + k); if (!m) return;
+    const T2 = calc(Object.assign({}, d, { style: k })).t, q = pctOf(T2);
+    m.innerHTML = `${mixBar(T2)}<span class="num">C ${q.c}% · Đ ${q.p}% · B ${q.f}%</span>`;
+  });
+  const ps = $('#pct-sum');
+  if (ps) { const s = (+d.custom.c || 0) + (+d.custom.p || 0) + (+d.custom.f || 0); ps.textContent = s === 100 ? 'Tổng 100%.' : `Tổng hiện là ${s}%. App sẽ tự quy đổi theo tỉ lệ.`; }
+}
+function sheetBack() {
+  const st = UI.sheet; if (!st) return false;
+  if (st.type === 'goal' && st.flow === 'setup') { openSheet({ type: 'me', d: st.d, flow: 'setup' }); return true; }
+  if (st.back === 'add' && UI.addState) { UI.addState.meal = st.meal; openSheet(UI.addState); return true; }
+  closeSheet(); return true;
+}
 
 // ---------- Sheet ----------
 function openSheet(state) {
@@ -572,8 +696,13 @@ function closeSheet() {
 function renderSheet() {
   const st = UI.sheet; if (!st) return;
   const body = $('#sheet-body');
-  const h = { add: addSheetHTML, food: foodSheetHTML, act: actSheetHTML, custom: customSheetHTML, backup: backupSheetHTML }[st.type];
+  const h = { add: addSheetHTML, food: foodSheetHTML, act: actSheetHTML, custom: customSheetHTML, backup: backupSheetHTML, me: meSheetHTML, goal: goalSheetHTML }[st.type];
+  const keep = body.dataset.type === st.type ? body.scrollTop : 0;
   body.innerHTML = h(st);
+  body.dataset.type = st.type;
+  body.scrollTop = keep;
+  if (st.type === 'me') updateMeLive();
+  if (st.type === 'goal') updateGoalLive();
   if (st.type === 'add' && st.mode === 'quick') updateQuick();
   if (st.type === 'food') updateFoodPreview();
   if (st.type === 'act') updateActPreview();

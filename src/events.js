@@ -122,7 +122,64 @@ document.addEventListener('click', (ev) => {
       S = blankState(); rebuildFoods(); Store.saveNow();
       if (Cloud.db) Cloud.mark('core');
       UI.date = todayKey(); go('profile');
-      toast('Đã xoá dữ liệu mẫu. Hãy nhập hồ sơ của bạn.');
+      openSheet({ type: 'me', d: cloneP(S.profile), flow: 'setup' });
+      toast('Đã xoá dữ liệu mẫu');
+      break;
+    }
+    case 'setup': if (UI.view !== 'profile') go('profile'); openSheet({ type: 'me', d: cloneP(S.profile), flow: 'setup' }); break;
+    case 'edit-me': openSheet({ type: 'me', d: cloneP(S.profile) }); break;
+    case 'edit-goal': openSheet({ type: 'goal', d: cloneP(S.profile) }); break;
+    case 'dset': {
+      const k = el.dataset.k; let v = el.dataset.v;
+      if (k === 'act' || k === 'rate') v = +v;
+      st.d[k] = v;
+      if (k === 'goal' && v === 'gain' && st.d.rate > 0.5) st.d.rate = 0.5;
+      if (k === 'goal' || k === 'style') renderSheet();
+      else {
+        $$(`#sheet [data-action="dset"][data-k="${k}"]`).forEach((b) => b.setAttribute('aria-pressed', b.dataset.v === String(el.dataset.v)));
+        if (st.type === 'me') updateMeLive(); else updateGoalLive();
+      }
+      break;
+    }
+    case 'dstep': {
+      const k = el.dataset.k, step = +el.dataset.d;
+      const lim = { age: [10, 100], height: [100, 230], weight: [25, 300], tw: [25, 300] }[k];
+      const cur = +st.d[k] || (k === 'tw' ? +st.d.weight : 0);
+      st.d[k] = clamp(Math.round((cur + step) * 10) / 10, lim[0], lim[1]);
+      const inp = $(`#sheet [data-d-k="${k}"]`); if (inp) inp.value = fq(st.d[k]);
+      if (st.type === 'me') updateMeLive(); else updateGoalLive();
+      break;
+    }
+    case 'me-commit': {
+      const d = st.d;
+      const bad = !(d.age >= 10 && d.age <= 100) ? 'Tuổi từ 10 đến 100' : !(d.height >= 100 && d.height <= 230) ? 'Chiều cao từ 100 đến 230 cm' : !(d.weight >= 25 && d.weight <= 300) ? 'Cân nặng từ 25 đến 300 kg' : '';
+      if (bad) { toast(bad); break; }
+      if (st.flow === 'setup') { openSheet({ type: 'goal', d, flow: 'setup' }); break; }
+      const oldT = S.profile.goalSet ? calc(S.profile).t : null;
+      const wChanged = +d.weight !== +S.profile.weight;
+      ['name', 'sex', 'age', 'height', 'weight', 'act'].forEach((k) => { S.profile[k] = d[k]; });
+      S.profile.set = true;
+      if (wChanged) { const t = todayKey(); S.weights = S.weights.filter((w) => w.d !== t); S.weights.push({ d: t, kg: +d.weight }); }
+      touch(null); closeSheet(); renderProfile();
+      if (S.profile.goalSet) revealTargets(oldT);
+      toast('Đã lưu thông tin cá nhân');
+      break;
+    }
+    case 'goal-commit': {
+      const d = st.d;
+      if (d.goal !== 'keep' && d.tw && ((d.goal === 'lose' && +d.tw >= +d.weight) || (d.goal === 'gain' && +d.tw <= +d.weight))) { toast(d.goal === 'lose' ? 'Cân nặng mong muốn cần nhỏ hơn hiện tại' : 'Cân nặng mong muốn cần lớn hơn hiện tại'); break; }
+      const oldT = S.profile.goalSet ? calc(S.profile).t : null;
+      const goalChanged = !S.profile.goalSet || d.goal !== S.profile.goal || +d.tw !== +S.profile.tw;
+      const wChanged = +d.weight !== +S.profile.weight;
+      Object.assign(S.profile, cloneP(d));
+      if (d.goal === 'keep') S.profile.tw = '';
+      if (goalChanged || !S.profile.startW) S.profile.startW = +S.profile.weight;
+      S.profile.set = true; S.profile.goalSet = true;
+      if (wChanged) { const t = todayKey(); S.weights = S.weights.filter((w) => w.d !== t); S.weights.push({ d: t, kg: +d.weight }); }
+      touch(null); closeSheet();
+      if (UI.view !== 'profile') go('profile'); else renderProfile();
+      requestAnimationFrame(() => revealTargets(oldT));
+      toast(`Đã áp dụng: ${fk(calc(S.profile).t.k)} kcal mỗi ngày`);
       break;
     }
     case 'copy-meal': {
@@ -144,7 +201,7 @@ document.addEventListener('click', (ev) => {
     }
     case 'open-food': openFood(el.dataset.fid, { g: el.dataset.g ? +el.dataset.g : null, meal: el.dataset.meal }); break;
     case 'pick-food': openFood(el.dataset.fid, { meal: st.meal, back: 'add' }); break;
-    case 'sheet-back': if (st && st.back === 'add' && UI.addState) { UI.addState.meal = st.meal; openSheet(UI.addState); } else closeSheet(); break;
+    case 'sheet-back': sheetBack(); break;
     case 'sheet-meal': if (st) { st.meal = el.dataset.meal; if (st.type === 'add') UI.addState = st; renderSheet(); } break;
     case 'add-mode': st.mode = el.dataset.v; renderSheet(); { const f = $('#sheet [data-autofocus]'); if (f) f.focus(); } break;
     case 'food-cat':
@@ -294,16 +351,6 @@ document.addEventListener('click', (ev) => {
       break;
     }
     case 'del-weight': S.weights = S.weights.filter((w) => w.d !== el.dataset.d); touch(null); renderProgress(); break;
-    case 'pset': {
-      const k = el.dataset.k; let v = el.dataset.v;
-      if (k === 'act' || k === 'rate') v = +v;
-      S.profile[k] = v;
-      if (k === 'goal' && v === 'gain' && S.profile.rate > 0.5) S.profile.rate = 0.5;
-      S.profile.set = true; touch(null);
-      if (k === 'goal' || k === 'style') renderProfile();
-      else { $$(`[data-action="pset"][data-k="${k}"]`).forEach((b) => b.setAttribute('aria-pressed', b.dataset.v === String(el.dataset.v))); refreshProfileResults(); }
-      break;
-    }
     case 'theme': S.settings.theme = el.dataset.v; touch(null); applyTheme(); $$('[data-action="theme"]').forEach((b) => b.setAttribute('aria-pressed', b === el)); break;
     case 'backup': openSheet({ type: 'backup' }); break;
     case 'export': doExport(); break;
@@ -349,17 +396,12 @@ document.addEventListener('input', (ev) => {
     const u = unitsOf(sheetFood(st))[st.u]; st.g = n * u.g; updateFoodPreview(); return;
   }
   if (t.id === 'act-min') { st.min = Math.max(0, Math.round(parseNum(t.value) || 0)); updateActPreview(); return; }
-  if (t.id && t.id.startsWith('p-')) {
-    const p = S.profile;
-    if (t.dataset.pct) { p.custom[t.dataset.pct] = Math.max(0, Math.round(parseNum(t.value) || 0)); updatePctSum(); }
-    else if (t.id === 'p-name') p.name = t.value;
-    else {
-      const key = { 'p-age': 'age', 'p-height': 'height', 'p-weight': 'weight', 'p-tw': 'tw' }[t.id];
-      const n = parseNum(t.value);
-      if (key === 'tw') p.tw = n > 0 ? n : '';
-      else if (n > 0) p[key] = n;
-    }
-    p.set = true; touch(null); refreshProfileResults();
+  if (st && (st.type === 'me' || st.type === 'goal')) {
+    if (t.dataset.pct) { st.d.custom[t.dataset.pct] = Math.max(0, Math.round(parseNum(t.value) || 0)); updateGoalLive(); return; }
+    const k = t.dataset.dK; if (!k) return;
+    if (k === 'name') st.d.name = t.value;
+    else { const n = parseNum(t.value); if (k === 'tw') st.d.tw = n > 0 ? n : ''; else if (n > 0) st.d[k] = n; }
+    if (st.type === 'me') updateMeLive(); else updateGoalLive();
   }
 });
 document.addEventListener('change', (ev) => {
@@ -396,7 +438,7 @@ try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change
 
 // Nút Back của Android: đóng sheet → về Hôm nay → thoát
 window.__back = function () {
-  if (UI.sheet) { if (UI.sheet.back === 'add' && UI.addState) { UI.addState.meal = UI.sheet.meal; openSheet(UI.addState); } else closeSheet(); return true; }
+  if (UI.sheet) return sheetBack();
   if (UI.view !== 'today') { go('today'); return true; }
   if (UI.date !== todayKey()) { setDate(todayKey()); return true; }
   return false;
