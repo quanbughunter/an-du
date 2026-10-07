@@ -1,0 +1,5 @@
+android/out/
+android/keystore/
+build/
+dist/
+*.apk
