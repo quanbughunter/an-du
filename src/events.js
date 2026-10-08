@@ -143,11 +143,12 @@ document.addEventListener('click', (ev) => {
     }
     case 'dstep': {
       const k = el.dataset.k, step = +el.dataset.d;
-      const lim = { age: [10, 100], height: [100, 230], weight: [25, 300], tw: [25, 300] }[k];
+      const lim = { age: [10, 100], height: [100, 230], weight: [25, 300], tw: [25, 300], km: [0, 300], min: [0, 1440], steps: [0, 200000], sets: [1, 50], reps: [0, 2000], floors: [0, 500] }[k];
       const cur = +st.d[k] || (k === 'tw' ? +st.d.weight : 0);
+      if (k === 'sets' && cur + step < 1) break;
       st.d[k] = clamp(Math.round((cur + step) * 10) / 10, lim[0], lim[1]);
-      const inp = $(`#sheet [data-d-k="${k}"]`); if (inp) inp.value = fq(st.d[k]);
-      if (st.type === 'me') updateMeLive(); else updateGoalLive();
+      const inp = $(`#sheet [data-d-k="${k}"]`); if (inp) inp.value = k === 'steps' ? String(st.d[k]) : fq(st.d[k]);
+      if (st.type === 'me') updateMeLive(); else if (st.type === 'goal') updateGoalLive(); else updateActPreview();
       break;
     }
     case 'me-commit': {
@@ -293,21 +294,42 @@ document.addEventListener('click', (ev) => {
       toast(`Đã thêm ${name}`);
       break;
     }
-    case 'add-act': openSheet({ type: 'act', n: 'Đi bộ nhanh', met: 4.3, min: 30 }); break;
+    case 'add-act': openSheet({ type: 'act', a: null, q: '' }); break;
     case 'edit-act': {
-      const a2 = (getDay(UI.date).acts || []).find((x) => x.i === el.dataset.id); if (!a2) break;
-      openSheet({ type: 'act', edit: a2.i, n: a2.n, met: a2.met, min: a2.min });
+      const e = (getDay(UI.date).acts || []).find((x) => x.i === el.dataset.id); if (!e) break;
+      if (e.a && ACT.has(e.a)) {
+        const a = ACT.get(e.a);
+        openSheet({ type: 'act', a: e.a, edit: e.i, d: { mode: e.mode || 'time', km: e.km != null ? e.km : '', min: e.min != null ? e.min : '', steps: e.steps, sets: e.sets, reps: e.reps, floors: e.floors, lv: e.lv != null ? e.lv : defLv(a) } });
+      } else {
+        const a = actByText(' ' + norm(e.n) + ' ') || ACT.get('hiit');
+        openSheet({ type: 'act', a: a.id, edit: e.i, d: { mode: 'time', min: e.min || 30, lv: defLv(a) } });
+      }
       break;
     }
-    case 'act-pick': st.n = el.dataset.n; st.met = +el.dataset.met; $$('[data-action="act-pick"]').forEach((b) => b.setAttribute('aria-pressed', b === el)); updateActPreview(); break;
-    case 'act-step': st.min = Math.max(5, (Math.round((+st.min || 0) / 5) * 5) + (+el.dataset.d)); $('#act-min').value = st.min; updateActPreview(); break;
+    case 'act-choose': st.a = el.dataset.a; st.d = actDraft(ACT.get(st.a)); renderSheet(); break;
+    case 'act-back': st.a = null; renderSheet(); break;
+    case 'act-mode': { const a = ACT.get(st.a); st.d = Object.assign(actDraft(a, el.dataset.v), { lv: st.d.lv }); renderSheet(); break; }
+    case 'act-lv': st.d.lv = +el.dataset.i; $$('#sheet [data-action="act-lv"]').forEach((b) => b.setAttribute('aria-pressed', b === el)); updateActPreview(); break;
     case 'act-commit': {
-      if (!(st.min > 0)) { toast('Nhập số phút'); break; }
-      const d = getDay(UI.date, true);
-      const rec = { i: st.edit || uid(), n: st.n, met: st.met, min: +st.min, kcal: Math.round(st.met * weightKg() * st.min / 60) };
-      if (st.edit) d.acts = d.acts.map((x) => (x.i === st.edit ? rec : x)); else d.acts.push(rec);
+      const d = st.d;
+      const amt = { dist: +d.km, time: +d.min, steps: +d.steps, reps: +d.reps, floors: +d.floors }[d.mode];
+      if (!(amt > 0)) { toast('Nhập số lượng lớn hơn 0'); break; }
+      const day = getDay(UI.date, true);
+      const rec = actRecord(st.a, d, st.edit);
+      if (st.edit) day.acts = day.acts.map((x) => (x.i === st.edit ? rec : x)); else day.acts.push(rec);
       persistDay(UI.date); closeSheet(); renderToday();
       toast(`Đã ghi ${rec.n} · −${fk(rec.kcal)} kcal`);
+      break;
+    }
+    case 'actq-commit': {
+      const ok = (UI.actParsed || []).filter((r) => r.a && r.mode);
+      if (!ok.length) break;
+      const day = getDay(UI.date, true);
+      const recs = ok.map((r) => actRecord(r.a, r));
+      day.acts.push(...recs);
+      UI.actQ = ''; UI.actParsed = [];
+      persistDay(UI.date); renderToday();
+      toast(`Đã ghi ${recs.length} hoạt động · −${fk(recs.reduce((s, r) => s + r.kcal, 0))} kcal`);
       break;
     }
     case 'del-act': { const d = getDay(UI.date, true); d.acts = d.acts.filter((x) => x.i !== st.edit); persistDay(UI.date); closeSheet(); renderToday(); toast('Đã xoá vận động'); break; }
@@ -395,7 +417,12 @@ document.addEventListener('input', (ev) => {
     const n = parseNum(t.value); if (!(n > 0)) return;
     const u = unitsOf(sheetFood(st))[st.u]; st.g = n * u.g; updateFoodPreview(); return;
   }
-  if (t.id === 'act-min') { st.min = Math.max(0, Math.round(parseNum(t.value) || 0)); updateActPreview(); return; }
+  if (t.id === 'act-quick') { UI.actQ = t.value; clearTimeout(qTimer); qTimer = setTimeout(updateActQuick, 160); return; }
+  if (t.id === 'act-q') { st.q = t.value; renderSheet(); const i = $('#act-q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } return; }
+  if (st && st.type === 'act' && t.dataset.dK) {
+    const k = t.dataset.dK, raw = k === 'steps' ? String(t.value).replace(/[.\s]/g, '') : t.value;
+    const n = parseNum(raw); st.d[k] = n >= 0 ? n : ''; updateActPreview(); return;
+  }
   if (st && (st.type === 'me' || st.type === 'goal')) {
     if (t.dataset.pct) { st.d.custom[t.dataset.pct] = Math.max(0, Math.round(parseNum(t.value) || 0)); updateGoalLive(); return; }
     const k = t.dataset.dK; if (!k) return;
@@ -427,6 +454,7 @@ document.addEventListener('change', (ev) => {
 document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Escape' && UI.sheet) closeSheet();
   if (ev.key === 'Enter' && ev.target.id === 'w-today') $('[data-action="save-weight"]').click();
+  if (ev.key === 'Enter' && ev.target.id === 'act-quick') { const b = $('[data-action="actq-commit"]'); if (b) b.click(); }
 });
 let rzTimer = null;
 window.addEventListener('resize', () => { clearTimeout(rzTimer); rzTimer = setTimeout(() => { if (UI.view === 'progress') renderProgress(); }, 200); });

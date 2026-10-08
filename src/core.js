@@ -154,6 +154,108 @@ function parseQuick(text) {
   });
 }
 
+// ---------- Vận động ----------
+const ACT = new Map(ACTS.map((a) => [a.id, Object.assign(a, { al: [norm(a.name), ...a.alias.split(',').map(norm)].filter(Boolean) })]));
+const MODE_NAME = { dist: 'Quãng đường', time: 'Thời gian', steps: 'Số bước', reps: 'Số lần', floors: 'Số tầng' };
+function interp(tbl, x) {
+  if (x <= tbl[0][0]) return tbl[0][1];
+  for (let i = 1; i < tbl.length; i++) {
+    if (x <= tbl[i][0]) { const [x0, y0] = tbl[i - 1], [x1, y1] = tbl[i]; return y0 + (y1 - y0) * (x - x0) / (x1 - x0); }
+  }
+  return tbl[tbl.length - 1][1];
+}
+const stepLenKm = (h) => 0.415 * (+h || 165) / 100 / 1000;   // chiều dài bước ≈ 41,5% chiều cao
+const defLv = (a) => Math.floor((a.lv.length - 1) / 2);
+// e: { a, mode, km, min, steps, sets, reps, floors, lv } → { kcal, met?, detail, how }
+function actCalc(e, W, H) {
+  const a = ACT.get(e.a);
+  if (!a) return { kcal: e.kcal || 0, detail: e.min ? `${e.min} phút` : '', how: '' };
+  const lv = a.lv[Math.min(e.lv == null ? defLv(a) : e.lv, a.lv.length - 1)];
+  const kg = NF1.format(W);
+  if (e.mode === 'dist') {
+    const km = +e.km || 0, min = +e.min || 0;
+    if (min > 0 && a.speed && km > 0) {
+      const v = km / (min / 60), met = interp(a.speed, v);
+      const fast = (a.id === 'run' && v > 22) || (a.id === 'walk' && v > 9) || (a.id === 'bike' && v > 45) || (a.id === 'swim' && v > 6);
+      return { kcal: met * W * min / 60, detail: `${NF2.format(km)} km · ${fq(min)} phút (${NF1.format(v)} km/h)`, how: (fast ? `Tốc độ ${NF1.format(v)} km/h có vẻ quá nhanh, hãy kiểm tra lại thời gian. ` : '') + `Tốc độ ${NF1.format(v)} km/h → MET ${NF1.format(met)} × ${kg} kg × ${fq(min)} phút ÷ 60` };
+    }
+    return { kcal: (a.perKm || 0) * W * km, detail: `${NF2.format(km)} km`, how: `${NF2.format(a.perKm)} kcal × ${kg} kg × ${NF2.format(km)} km` };
+  }
+  if (e.mode === 'steps') {
+    const steps = +e.steps || 0, km = steps * stepLenKm(H);
+    return { kcal: (a.perKm || 0.72) * W * km, detail: `${NF0.format(steps)} bước ≈ ${NF1.format(km)} km`, how: `${NF0.format(steps)} bước × ${NF2.format(stepLenKm(H) * 1000)} m/bước ≈ ${NF1.format(km)} km; ${NF2.format(a.perKm)} kcal × ${kg} kg × km` };
+  }
+  if (e.mode === 'reps') {
+    const sets = Math.max(1, +e.sets || 1), reps = +e.reps || 0, n = sets * reps;
+    return { kcal: (a.perRep || 0) * W * n, detail: sets > 1 ? `${sets} hiệp × ${reps} lần` : `${reps} lần`, how: `${n} lần × ${NF2.format((a.perRep || 0) * W)} kcal/lần (theo ${kg} kg)` };
+  }
+  if (e.mode === 'floors') {
+    const f = +e.floors || 0;
+    return { kcal: (a.perFloor || 0) * W * f, detail: `${f} tầng`, how: `${f} tầng × ${NF2.format((a.perFloor || 0) * W)} kcal/tầng (theo ${kg} kg)` };
+  }
+  const min = +e.min || 0;
+  return { kcal: lv[1] * W * min / 60, met: lv[1], detail: `${fq(min)} phút · ${lv[0].toLowerCase()}`, how: `MET ${NF1.format(lv[1])} × ${kg} kg × ${fq(min)} phút ÷ 60` };
+}
+function actByText(t) {
+  const s = ' ' + t + ' ';
+  let best = null, len = 0;
+  ACT.forEach((a) => a.al.forEach((al) => { if (al.length > len && s.includes(' ' + al + ' ')) { best = a; len = al.length; } }));
+  return best;
+}
+// "chạy bộ 2 km 12 phút, kéo xà 3x10, đi bộ 8.000 bước, HIIT 10p, leo 5 tầng, plank 90 giây"
+function parseActs(text) {
+  const chunks = String(text || '').split(/[\n,;+]|\s(?:và|va)\s/i).map((x) => x.trim()).filter(Boolean);
+  return chunks.map((raw) => {
+    let s = ' ' + norm(raw).replace(/(\d),(\d)/g, '$1.$2') + ' ';
+    const a = actByText(s);
+    const r = { raw, a: a ? a.id : null };
+    if (!a) return r;
+    let m;
+    const num = (x) => Number(x);
+    if ((m = s.match(/\s(\d{1,3}(?:\.\d{3})+|\d+(?:\.\d+)?)\s*(k)?\s*(buoc|step|steps)(?=\s)/))) {
+      let v = m[1].includes('.') && /^\d{1,3}(\.\d{3})+$/.test(m[1]) ? num(m[1].replace(/\./g, '')) : num(m[1]);
+      if (m[2]) v *= 1000;
+      r.steps = Math.round(v); s = s.replace(m[0], ' ');
+    }
+    if ((m = s.match(/\s(\d+(?:\.\d+)?)\s*km(?=\s)/))) { r.km = num(m[1]); s = s.replace(m[0], ' '); }
+    else if ((m = s.match(/\s(\d+)\s*(m|met|mét)(?=\s)/))) { r.km = num(m[1]) / 1000; s = s.replace(m[0], ' '); }
+    if ((m = s.match(/\s(\d+(?:\.\d+)?)\s*(gio|h|tieng)(?=\s)/))) { r.min = num(m[1]) * 60; s = s.replace(m[0], ' '); }
+    if ((m = s.match(/\s(\d+(?:\.\d+)?)\s*(phut|ph|p|min|mins|')(?=\s)/))) { r.min = (r.min || 0) + num(m[1]); s = s.replace(m[0], ' '); }
+    if ((m = s.match(/\s(\d+)\s*(giay|s|sec|giây)(?=\s)/))) { r.min = (r.min || 0) + num(m[1]) / 60; s = s.replace(m[0], ' '); }
+    if ((m = s.match(/\s(\d+)\s*(?:x|\*|hiep|set|sets)\s*(\d+)(?:\s*(?:lan|cai|rep|reps))?(?=\s)/))) { r.sets = num(m[1]); r.reps = num(m[2]); s = s.replace(m[0], ' '); }
+    else if ((m = s.match(/\s(\d+)\s*(lan|cai|rep|reps|qua|nhip)(?=\s)/))) { r.sets = 1; r.reps = num(m[1]); s = s.replace(m[0], ' '); }
+    if ((m = s.match(/\s(\d+)\s*(tang|lau)(?=\s)/))) { r.floors = num(m[1]); s = s.replace(m[0], ' '); }
+    if (r.steps == null && r.km == null && r.min == null && r.reps == null && r.floors == null && (m = s.match(/\s(\d+(?:\.\d+)?)(?=\s)/))) {
+      const v = num(m[1]), first = a.modes[0];
+      if (first === 'reps') { r.sets = 1; r.reps = v; } else if (first === 'floors') r.floors = v;
+      else if (first === 'steps' && v >= 100) r.steps = v; else if (first === 'dist' && v <= 60) r.km = v; else r.min = v;
+    }
+    if (r.steps != null && a.modes.includes('steps')) r.mode = 'steps';
+    else if (r.km != null && a.modes.includes('dist')) r.mode = 'dist';
+    else if (r.floors != null && a.modes.includes('floors')) r.mode = 'floors';
+    else if (r.reps != null && a.modes.includes('reps')) r.mode = 'reps';
+    else if (r.min != null && a.modes.includes('time')) r.mode = 'time';
+    if (/\s(nhanh|manh|cao|nang|thi dau|doi khang)\s/.test(s)) r.lv = a.lv.length - 1;
+    else if (/\s(cham|nhe|thong tha|nhe nhang)\s/.test(s)) r.lv = 0;
+    return r;
+  });
+}
+// Calo đã tiêu trong ngày: BMR + sinh hoạt nhẹ (10% BMR) + tiêu hoá thức ăn (10% năng lượng ăn vào) + vận động đã ghi
+function burnInfo(k) {
+  const c = calc(S.profile), d = getDay(k), t = todayKey();
+  const now = new Date();
+  const frac = k < t ? 1 : k > t ? 0 : (now.getHours() * 60 + now.getMinutes()) / 1440;
+  const eaten = sumItems(d.items).k;
+  const ex = (d.acts || []).reduce((s, a) => s + (a.kcal || 0), 0);
+  const bmr = c.bmr * frac, neat = c.bmr * 0.1 * frac, tef = eaten * 0.1;
+  return {
+    frac, bmrDay: c.bmr, bmr, neat, tef, ex, eaten,
+    soFar: bmr + neat + tef + ex,
+    fullDay: c.bmr * 1.1 + tef + ex,
+    time: k === t ? `${pad(now.getHours())}:${pad(now.getMinutes())}` : null
+  };
+}
+
 // ---------- Hồ sơ & mục tiêu ----------
 const ACT_LEVELS = [
   { v: 1.2, name: 'Ít vận động', desc: 'Ngồi nhiều, gần như không tập' },
@@ -266,11 +368,13 @@ function demoState() {
     const items = menus[mk].map(([n, g, m]) => { const f = foodByName(n); return f ? entryFrom(f, g, m) : null; }).filter(Boolean);
     st.days[k] = { items, acts: [], t: tg };
   });
-  const w = st.profile.weight;
-  const a2 = (n, met, min) => ({ i: uid(), n, met, min, kcal: Math.round(met * w * min / 60) });
-  st.days[addDays(t, -2)].acts.push(a2('Đi bộ nhanh', 4.3, 40));
-  st.days[addDays(t, -6)].acts.push(a2('Cầu lông', 5.5, 45));
-  st.days[addDays(t, -9)].acts.push(a2('Chạy bộ (8 km/h)', 8.3, 25));
+  const w = st.profile.weight, h = st.profile.height;
+  const a2 = (e) => Object.assign({ i: uid() }, e, { n: ACT.get(e.a).name, kcal: Math.round(actCalc(e, w, h).kcal) });
+  st.days[t].acts.push(a2({ a: 'walk', mode: 'steps', steps: 6000 }));
+  st.days[addDays(t, -2)].acts.push(a2({ a: 'walk', mode: 'time', min: 40, lv: 2 }), a2({ a: 'run', mode: 'dist', km: 3, min: 20 }));
+  st.days[addDays(t, -3)].acts.push(a2({ a: 'pullup', mode: 'reps', sets: 3, reps: 8 }), a2({ a: 'pushup', mode: 'reps', sets: 3, reps: 15 }));
+  st.days[addDays(t, -6)].acts.push(a2({ a: 'badminton', mode: 'time', min: 45, lv: 0 }));
+  st.days[addDays(t, -9)].acts.push(a2({ a: 'hiit', mode: 'time', min: 20, lv: 0 }));
   [[-13, 73.4], [-11, 73.1], [-9, 73.2], [-7, 72.8], [-5, 72.6], [-3, 72.5], [-1, 72.2], [0, 72.0]].forEach(([d, kg]) => st.weights.push({ d: addDays(t, d), kg }));
   st.profile.weight = 72;
   st.recent = ['f-uc-ga-chin', 'f-com-trang', 'f-pho-bo', 'f-trung-ga-luoc', 'f-chuoi'];

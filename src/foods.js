@@ -260,27 +260,44 @@ const FOOD_ROWS = [
   ['Tương cà', 'gv', 101, 27.4, 1, 0.1, 0.3, 'thìa canh:15', 'ketchup']
 ];
 
-/* Hoạt động thể chất — chỉ số MET (Compendium of Physical Activities, 2011).
- * kcal ≈ MET × cân nặng (kg) × thời gian (giờ) */
-const ACTIVITIES = [
-  ['Đi bộ thường', 3.0],
-  ['Đi bộ nhanh', 4.3],
-  ['Chạy bộ (8 km/h)', 8.3],
-  ['Chạy bộ (10 km/h)', 9.8],
-  ['Đạp xe thong thả', 4.0],
-  ['Đạp xe vừa sức', 6.8],
-  ['Bơi lội', 5.8],
-  ['Nhảy dây', 11.8],
-  ['Leo cầu thang', 8.8],
-  ['Cầu lông', 5.5],
-  ['Bóng đá', 7.0],
-  ['Bóng chuyền', 4.0],
-  ['Bóng bàn', 4.0],
-  ['Tennis', 7.3],
-  ['Tập tạ / gym', 5.0],
-  ['HIIT', 8.0],
-  ['Aerobic / zumba', 6.5],
-  ['Yoga', 2.5],
-  ['Làm việc nhà', 3.3],
-  ['Làm vườn', 3.8]
+/* ===== Vận động =====
+ * Calo theo chỉ số MET (Compendium of Physical Activities, 2011): kcal ≈ MET × cân nặng (kg) × giờ.
+ * Theo quãng đường: chạy ≈ 1,0 kcal/kg/km, đi bộ ≈ 0,72, đạp xe ≈ 0,39, bơi ≈ 2,9.
+ * Theo số lần (kéo xà, hít đất…): kcal/kg cho mỗi lần, ước tính từ công cơ học và MET thể dục mạnh.
+ * modes: dist (km), time (phút), steps (bước), reps (hiệp × lần), floors (tầng)
+ * lv: cường độ khi tính theo thời gian [nhãn, MET]; speed: bảng [km/h, MET] khi có cả quãng đường và thời gian.
+ */
+const ACT_GROUPS = ['Chạy & đi', 'Bài tập tại chỗ', 'Thể thao', 'Sinh hoạt'];
+const ACTS = [
+  { id: 'run', name: 'Chạy bộ', g: 0, modes: ['dist', 'time'], perKm: 1.0, lv: [['Chậm ~7 km/h', 7.0], ['Vừa ~9 km/h', 9.3], ['Nhanh ~11 km/h', 11.0]],
+    speed: [[6.4, 6.0], [8.0, 8.3], [8.4, 9.0], [9.7, 9.8], [10.8, 10.5], [11.3, 11.0], [12.1, 11.5], [12.9, 11.8], [13.8, 12.3], [14.5, 12.8], [16.1, 14.5], [17.7, 16.0], [19.3, 19.0]], alias: 'chay, chay bo, run, running, jogging, jog' },
+  { id: 'walk', name: 'Đi bộ', g: 0, modes: ['steps', 'dist', 'time'], perKm: 0.72, lv: [['Thong thả', 2.8], ['Vừa', 3.5], ['Nhanh', 4.3]],
+    speed: [[3.2, 2.8], [4.0, 3.0], [4.8, 3.5], [5.6, 4.3], [6.4, 5.0], [7.2, 7.0], [8.0, 8.3]], alias: 'di bo, di, walk, walking, buoc, buoc chan, tan bo' },
+  { id: 'bike', name: 'Đạp xe', g: 0, modes: ['dist', 'time'], perKm: 0.39, lv: [['Nhẹ <16 km/h', 4.0], ['Vừa 16–19 km/h', 6.8], ['Nhanh 19–22 km/h', 8.0], ['Rất nhanh >22 km/h', 10.0]],
+    speed: [[12, 4.0], [17.5, 6.8], [20.9, 8.0], [24, 10.0], [28, 12.0], [33, 15.8]], alias: 'dap xe, xe dap, bike, cycling, xe' },
+  { id: 'swim', name: 'Bơi lội', g: 0, modes: ['dist', 'time'], perKm: 2.9, lv: [['Nhẹ nhàng', 5.8], ['Nhanh', 9.8]], speed: [[1.5, 5.8], [2.5, 8.3], [3.5, 9.8]], alias: 'boi, boi loi, swim, swimming' },
+  { id: 'stairs', name: 'Leo cầu thang', g: 0, modes: ['floors', 'time'], perFloor: 0.035, lv: [['Chậm', 4.0], ['Nhanh', 8.8]], alias: 'leo cau thang, cau thang, leo thang, stairs, tang' },
+  { id: 'hike', name: 'Leo núi / trekking', g: 0, modes: ['time', 'dist'], perKm: 1.1, lv: [['Vừa', 6.0], ['Dốc, mang ba lô', 7.8]], alias: 'leo nui, trekking, hiking, di bo duong dai' },
+  { id: 'pullup', name: 'Kéo xà', g: 1, modes: ['reps', 'time'], perRep: 0.0065, lv: [['Vừa', 3.8], ['Mạnh', 8.0]], alias: 'keo xa, hit xa, xa don, pull up, pullup, chin up' },
+  { id: 'pushup', name: 'Hít đất', g: 1, modes: ['reps', 'time'], perRep: 0.0045, lv: [['Vừa', 3.8], ['Mạnh', 8.0]], alias: 'hit dat, chong day, push up, pushup' },
+  { id: 'situp', name: 'Gập bụng', g: 1, modes: ['reps', 'time'], perRep: 0.0025, lv: [['Vừa', 3.8], ['Mạnh', 5.0]], alias: 'gap bung, sit up, situp, crunch, bung' },
+  { id: 'squat', name: 'Squat', g: 1, modes: ['reps', 'time'], perRep: 0.0045, lv: [['Vừa', 5.0], ['Mạnh', 8.0]], alias: 'squat, gánh đùi, ganh dui, ngoi xom' },
+  { id: 'burpee', name: 'Burpee', g: 1, modes: ['reps', 'time'], perRep: 0.013, lv: [['Mạnh', 8.0]], alias: 'burpee, burpees' },
+  { id: 'jj', name: 'Bật nhảy (jumping jack)', g: 1, modes: ['reps', 'time'], perRep: 0.0022, lv: [['Vừa', 8.0]], alias: 'bat nhay, jumping jack, jumping jacks, dang chan' },
+  { id: 'rope', name: 'Nhảy dây', g: 1, modes: ['time', 'reps'], perRep: 0.0016, lv: [['Chậm', 8.8], ['Vừa', 11.8], ['Nhanh', 12.3]], alias: 'nhay day, rope, jump rope' },
+  { id: 'plank', name: 'Plank', g: 1, modes: ['time'], lv: [['Giữ tĩnh', 3.8]], alias: 'plank' },
+  { id: 'hiit', name: 'HIIT', g: 1, modes: ['time'], lv: [['Vừa', 8.0], ['Mạnh', 11.0]], alias: 'hiit, tabata, circuit, cardio cuong do cao' },
+  { id: 'gym', name: 'Tập tạ / gym', g: 1, modes: ['time'], lv: [['Nhẹ', 3.5], ['Vừa', 5.0], ['Nặng', 6.0]], alias: 'tap ta, gym, ta, tap gym, nang ta, weight' },
+  { id: 'yoga', name: 'Yoga', g: 1, modes: ['time'], lv: [['Nhẹ nhàng', 2.5], ['Power yoga', 4.0]], alias: 'yoga' },
+  { id: 'aerobic', name: 'Aerobic / zumba', g: 1, modes: ['time'], lv: [['Nhẹ', 5.0], ['Mạnh', 7.3]], alias: 'aerobic, zumba, the duc nhip dieu' },
+  { id: 'badminton', name: 'Cầu lông', g: 2, modes: ['time'], lv: [['Giải trí', 5.5], ['Thi đấu', 7.0]], alias: 'cau long, badminton' },
+  { id: 'football', name: 'Bóng đá', g: 2, modes: ['time'], lv: [['Giao hữu', 7.0], ['Thi đấu', 10.0]], alias: 'bong da, da bong, football, soccer, futsal' },
+  { id: 'basketball', name: 'Bóng rổ', g: 2, modes: ['time'], lv: [['Giải trí', 6.5], ['Thi đấu', 8.0]], alias: 'bong ro, basketball' },
+  { id: 'volleyball', name: 'Bóng chuyền', g: 2, modes: ['time'], lv: [['Giải trí', 4.0], ['Bãi biển', 8.0]], alias: 'bong chuyen, volleyball' },
+  { id: 'tabletennis', name: 'Bóng bàn', g: 2, modes: ['time'], lv: [['Vừa', 4.0]], alias: 'bong ban, ping pong' },
+  { id: 'tennis', name: 'Tennis', g: 2, modes: ['time'], lv: [['Đánh đôi', 6.0], ['Đánh đơn', 8.0]], alias: 'tennis, quan vot' },
+  { id: 'martial', name: 'Võ / boxing', g: 2, modes: ['time'], lv: [['Tập kỹ thuật', 5.3], ['Đối kháng', 10.3]], alias: 'vo, boxing, kickboxing, vovinam, karate, taekwondo, muay' },
+  { id: 'dance', name: 'Khiêu vũ / nhảy', g: 2, modes: ['time'], lv: [['Vừa', 5.0], ['Sôi động', 7.8]], alias: 'khieu vu, nhay, dance, dancing' },
+  { id: 'housework', name: 'Việc nhà', g: 3, modes: ['time'], lv: [['Nhẹ', 2.5], ['Dọn dẹp mạnh', 3.8]], alias: 'viec nha, don nha, lau nha, don dep' },
+  { id: 'garden', name: 'Làm vườn', g: 3, modes: ['time'], lv: [['Vừa', 3.8]], alias: 'lam vuon' }
 ];

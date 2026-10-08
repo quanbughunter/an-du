@@ -2,6 +2,7 @@
 
 Web app tiếng Việt theo dõi năng lượng và dinh dưỡng hằng ngày: ghi món theo bữa (tìm trong cơ sở dữ liệu, gõ nhanh hoặc nhập tay), xem tổng carb, đạm, béo, chất xơ và kcal, so với mục tiêu tính từ hồ sơ cá nhân (BMI, BMR, TDEE). Đĩa của mỗi ngày đổi màu: **cam = thiếu, xanh = đủ, đỏ = thừa**, kèm lời khuyên (vận động bao nhiêu phút để đốt phần dư, ăn thêm gì khi thiếu).
 
+- **Calo đã tiêu**: trao đổi chất nền (BMR, sinh hoạt nhẹ, tiêu hoá) cộng vận động. Vận động nhập theo km, số bước, số lần (kéo xà, hít đất…), số tầng hoặc phút, kể cả gõ nhanh “chạy bộ 2 km, kéo xà 3x10, HIIT 10 phút”. Có cân bằng năng lượng ăn vào − tiêu hao theo ngày.
 - Chạy hoàn toàn offline, dữ liệu lưu trên thiết bị (localStorage). Sao lưu/khôi phục bằng tệp `.json`.
 - 217 thực phẩm và món Việt (giá trị trên 100 g), thêm được “Món của tôi”.
 - Một tệp `index.html` duy nhất (font Be Vietnam Pro + Baloo 2 nhúng sẵn).
@@ -36,7 +37,7 @@ cp -r dist/www/index.html dist/www/sw.js dist/www/manifest.webmanifest .   # c�
 ```bash
 sudo apt install aapt apksigner zipalign android-sdk-platform-23 dalvik-exchange openjdk-17-jdk
 python3 build.py
-VERSION_NAME=1.0.2 VERSION_CODE=3 ./android/build_apk.sh     # → android/out/AnDu-1.0.2.apk
+VERSION_NAME=1.0.3 VERSION_CODE=4 ./android/build_apk.sh     # → android/out/AnDu-1.0.3.apk
 ```
 
 Lần build đầu tiên tạo khoá ký `android/keystore/` (đã bị `.gitignore` chặn). **Giữ khoá này cẩn thận**: muốn cập nhật app đã cài mà không mất dữ liệu thì bản mới phải ký bằng đúng khoá cũ và có `VERSION_CODE` lớn hơn.

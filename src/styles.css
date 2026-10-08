@@ -558,3 +558,33 @@ details.how .formula { margin-top: 8px; }
 .sheet-foot .live b { color: var(--ink); }
 .sheet-foot .live .big { font-family: var(--font-display); font-size: 26px; line-height: 1; }
 .sheet-foot .live .chip-st { margin-left: 4px; }
+
+/* ---------- Calo đã tiêu ---------- */
+.burn-card { border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-sm); overflow: hidden; }
+.burn-card .meal-head { --meal-bg: var(--pro-soft); }
+.burn-body { display: flex; flex-direction: column; gap: 14px; padding: 14px 16px 16px; }
+.mix.tall { height: 14px; }
+.burn-parts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
+.burn-parts li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); min-width: 0; }
+.burn-parts li span { flex: 1; min-width: 0; }
+.burn-parts li i { width: 10px; height: 10px; border-radius: 4px; flex: none; }
+.burn-parts li b { color: var(--ink); font-family: var(--font-display); font-size: 15px; }
+@media (max-width: 420px) { .burn-parts { grid-template-columns: 1fr; } }
+.actq { display: flex; flex-direction: column; gap: 8px; }
+.actq .searchbox .icon { color: var(--brand); }
+.parsed .p-go { background: none; padding: 0; }
+.burn-card .items { border-top: 1px solid var(--line); margin: 0 -16px; padding: 4px 0; }
+.act-ic { width: 32px; height: 32px; border-radius: 11px; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); flex: none; }
+.balance { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 16px; background: var(--surface-2); }
+.bal-row { display: grid; grid-template-columns: 76px 1fr auto; gap: 10px; align-items: center; font-size: 13px; color: var(--ink-2); }
+.bal-row b { color: var(--ink); font-family: var(--font-display); font-size: 16px; min-width: 52px; text-align: right; }
+.bal-bar { position: relative; height: 10px; border-radius: 999px; background: var(--surface); overflow: hidden; }
+.bal-bar b { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; min-width: 0 !important; }
+.bal-res { font-size: 14px; font-weight: 600; }
+.bal-res[data-st="def"] b { color: var(--sky); }
+.bal-res[data-st="sur"] b { color: var(--peach); }
+.bal-sum { font-size: 14px; margin-bottom: 8px; }
+.chart .b-def { fill: var(--sky); }
+.chart .b-sur { fill: var(--peach); }
+.act-chip { display: inline-flex; align-items: baseline; gap: 6px; }
+.act-chip em { font-style: normal; font-size: 11px; font-weight: 500; color: var(--ink-3); }

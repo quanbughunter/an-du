@@ -693,6 +693,36 @@ details.how .formula { margin-top: 8px; }
 .sheet-foot .live .big { font-family: var(--font-display); font-size: 26px; line-height: 1; }
 .sheet-foot .live .chip-st { margin-left: 4px; }
 
+/* ---------- Calo đã tiêu ---------- */
+.burn-card { border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-sm); overflow: hidden; }
+.burn-card .meal-head { --meal-bg: var(--pro-soft); }
+.burn-body { display: flex; flex-direction: column; gap: 14px; padding: 14px 16px 16px; }
+.mix.tall { height: 14px; }
+.burn-parts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
+.burn-parts li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); min-width: 0; }
+.burn-parts li span { flex: 1; min-width: 0; }
+.burn-parts li i { width: 10px; height: 10px; border-radius: 4px; flex: none; }
+.burn-parts li b { color: var(--ink); font-family: var(--font-display); font-size: 15px; }
+@media (max-width: 420px) { .burn-parts { grid-template-columns: 1fr; } }
+.actq { display: flex; flex-direction: column; gap: 8px; }
+.actq .searchbox .icon { color: var(--brand); }
+.parsed .p-go { background: none; padding: 0; }
+.burn-card .items { border-top: 1px solid var(--line); margin: 0 -16px; padding: 4px 0; }
+.act-ic { width: 32px; height: 32px; border-radius: 11px; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); flex: none; }
+.balance { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 16px; background: var(--surface-2); }
+.bal-row { display: grid; grid-template-columns: 76px 1fr auto; gap: 10px; align-items: center; font-size: 13px; color: var(--ink-2); }
+.bal-row b { color: var(--ink); font-family: var(--font-display); font-size: 16px; min-width: 52px; text-align: right; }
+.bal-bar { position: relative; height: 10px; border-radius: 999px; background: var(--surface); overflow: hidden; }
+.bal-bar b { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; min-width: 0 !important; }
+.bal-res { font-size: 14px; font-weight: 600; }
+.bal-res[data-st="def"] b { color: var(--sky); }
+.bal-res[data-st="sur"] b { color: var(--peach); }
+.bal-sum { font-size: 14px; margin-bottom: 8px; }
+.chart .b-def { fill: var(--sky); }
+.chart .b-sur { fill: var(--peach); }
+.act-chip { display: inline-flex; align-items: baseline; gap: 6px; }
+.act-chip em { font-style: normal; font-size: 11px; font-weight: 500; color: var(--ink-3); }
+
 </style>
 </head>
 <body>
@@ -781,7 +811,7 @@ details.how .formula { margin-top: 8px; }
 <script>
 (function () {
 'use strict';
-const APP_VERSION = '1.0.1';
+const APP_VERSION = '1.0.2';
 /* ===== Ăn Đủ — Cơ sở dữ liệu thực phẩm =====
  * Giá trị trên 100 g phần ăn được (đồ uống: 100 ml).
  * Cột: [tên, nhóm, kcal, carb (tổng, gồm xơ), đạm, béo, xơ, "khẩu phần:gam|...", "tên gọi khác"]
@@ -1044,29 +1074,46 @@ const FOOD_ROWS = [
   ['Tương cà', 'gv', 101, 27.4, 1, 0.1, 0.3, 'thìa canh:15', 'ketchup']
 ];
 
-/* Hoạt động thể chất — chỉ số MET (Compendium of Physical Activities, 2011).
- * kcal ≈ MET × cân nặng (kg) × thời gian (giờ) */
-const ACTIVITIES = [
-  ['Đi bộ thường', 3.0],
-  ['Đi bộ nhanh', 4.3],
-  ['Chạy bộ (8 km/h)', 8.3],
-  ['Chạy bộ (10 km/h)', 9.8],
-  ['Đạp xe thong thả', 4.0],
-  ['Đạp xe vừa sức', 6.8],
-  ['Bơi lội', 5.8],
-  ['Nhảy dây', 11.8],
-  ['Leo cầu thang', 8.8],
-  ['Cầu lông', 5.5],
-  ['Bóng đá', 7.0],
-  ['Bóng chuyền', 4.0],
-  ['Bóng bàn', 4.0],
-  ['Tennis', 7.3],
-  ['Tập tạ / gym', 5.0],
-  ['HIIT', 8.0],
-  ['Aerobic / zumba', 6.5],
-  ['Yoga', 2.5],
-  ['Làm việc nhà', 3.3],
-  ['Làm vườn', 3.8]
+/* ===== Vận động =====
+ * Calo theo chỉ số MET (Compendium of Physical Activities, 2011): kcal ≈ MET × cân nặng (kg) × giờ.
+ * Theo quãng đường: chạy ≈ 1,0 kcal/kg/km, đi bộ ≈ 0,72, đạp xe ≈ 0,39, bơi ≈ 2,9.
+ * Theo số lần (kéo xà, hít đất…): kcal/kg cho mỗi lần, ước tính từ công cơ học và MET thể dục mạnh.
+ * modes: dist (km), time (phút), steps (bước), reps (hiệp × lần), floors (tầng)
+ * lv: cường độ khi tính theo thời gian [nhãn, MET]; speed: bảng [km/h, MET] khi có cả quãng đường và thời gian.
+ */
+const ACT_GROUPS = ['Chạy & đi', 'Bài tập tại chỗ', 'Thể thao', 'Sinh hoạt'];
+const ACTS = [
+  { id: 'run', name: 'Chạy bộ', g: 0, modes: ['dist', 'time'], perKm: 1.0, lv: [['Chậm ~7 km/h', 7.0], ['Vừa ~9 km/h', 9.3], ['Nhanh ~11 km/h', 11.0]],
+    speed: [[6.4, 6.0], [8.0, 8.3], [8.4, 9.0], [9.7, 9.8], [10.8, 10.5], [11.3, 11.0], [12.1, 11.5], [12.9, 11.8], [13.8, 12.3], [14.5, 12.8], [16.1, 14.5], [17.7, 16.0], [19.3, 19.0]], alias: 'chay, chay bo, run, running, jogging, jog' },
+  { id: 'walk', name: 'Đi bộ', g: 0, modes: ['steps', 'dist', 'time'], perKm: 0.72, lv: [['Thong thả', 2.8], ['Vừa', 3.5], ['Nhanh', 4.3]],
+    speed: [[3.2, 2.8], [4.0, 3.0], [4.8, 3.5], [5.6, 4.3], [6.4, 5.0], [7.2, 7.0], [8.0, 8.3]], alias: 'di bo, di, walk, walking, buoc, buoc chan, tan bo' },
+  { id: 'bike', name: 'Đạp xe', g: 0, modes: ['dist', 'time'], perKm: 0.39, lv: [['Nhẹ <16 km/h', 4.0], ['Vừa 16–19 km/h', 6.8], ['Nhanh 19–22 km/h', 8.0], ['Rất nhanh >22 km/h', 10.0]],
+    speed: [[12, 4.0], [17.5, 6.8], [20.9, 8.0], [24, 10.0], [28, 12.0], [33, 15.8]], alias: 'dap xe, xe dap, bike, cycling, xe' },
+  { id: 'swim', name: 'Bơi lội', g: 0, modes: ['dist', 'time'], perKm: 2.9, lv: [['Nhẹ nhàng', 5.8], ['Nhanh', 9.8]], speed: [[1.5, 5.8], [2.5, 8.3], [3.5, 9.8]], alias: 'boi, boi loi, swim, swimming' },
+  { id: 'stairs', name: 'Leo cầu thang', g: 0, modes: ['floors', 'time'], perFloor: 0.035, lv: [['Chậm', 4.0], ['Nhanh', 8.8]], alias: 'leo cau thang, cau thang, leo thang, stairs, tang' },
+  { id: 'hike', name: 'Leo núi / trekking', g: 0, modes: ['time', 'dist'], perKm: 1.1, lv: [['Vừa', 6.0], ['Dốc, mang ba lô', 7.8]], alias: 'leo nui, trekking, hiking, di bo duong dai' },
+  { id: 'pullup', name: 'Kéo xà', g: 1, modes: ['reps', 'time'], perRep: 0.0065, lv: [['Vừa', 3.8], ['Mạnh', 8.0]], alias: 'keo xa, hit xa, xa don, pull up, pullup, chin up' },
+  { id: 'pushup', name: 'Hít đất', g: 1, modes: ['reps', 'time'], perRep: 0.0045, lv: [['Vừa', 3.8], ['Mạnh', 8.0]], alias: 'hit dat, chong day, push up, pushup' },
+  { id: 'situp', name: 'Gập bụng', g: 1, modes: ['reps', 'time'], perRep: 0.0025, lv: [['Vừa', 3.8], ['Mạnh', 5.0]], alias: 'gap bung, sit up, situp, crunch, bung' },
+  { id: 'squat', name: 'Squat', g: 1, modes: ['reps', 'time'], perRep: 0.0045, lv: [['Vừa', 5.0], ['Mạnh', 8.0]], alias: 'squat, gánh đùi, ganh dui, ngoi xom' },
+  { id: 'burpee', name: 'Burpee', g: 1, modes: ['reps', 'time'], perRep: 0.013, lv: [['Mạnh', 8.0]], alias: 'burpee, burpees' },
+  { id: 'jj', name: 'Bật nhảy (jumping jack)', g: 1, modes: ['reps', 'time'], perRep: 0.0022, lv: [['Vừa', 8.0]], alias: 'bat nhay, jumping jack, jumping jacks, dang chan' },
+  { id: 'rope', name: 'Nhảy dây', g: 1, modes: ['time', 'reps'], perRep: 0.0016, lv: [['Chậm', 8.8], ['Vừa', 11.8], ['Nhanh', 12.3]], alias: 'nhay day, rope, jump rope' },
+  { id: 'plank', name: 'Plank', g: 1, modes: ['time'], lv: [['Giữ tĩnh', 3.8]], alias: 'plank' },
+  { id: 'hiit', name: 'HIIT', g: 1, modes: ['time'], lv: [['Vừa', 8.0], ['Mạnh', 11.0]], alias: 'hiit, tabata, circuit, cardio cuong do cao' },
+  { id: 'gym', name: 'Tập tạ / gym', g: 1, modes: ['time'], lv: [['Nhẹ', 3.5], ['Vừa', 5.0], ['Nặng', 6.0]], alias: 'tap ta, gym, ta, tap gym, nang ta, weight' },
+  { id: 'yoga', name: 'Yoga', g: 1, modes: ['time'], lv: [['Nhẹ nhàng', 2.5], ['Power yoga', 4.0]], alias: 'yoga' },
+  { id: 'aerobic', name: 'Aerobic / zumba', g: 1, modes: ['time'], lv: [['Nhẹ', 5.0], ['Mạnh', 7.3]], alias: 'aerobic, zumba, the duc nhip dieu' },
+  { id: 'badminton', name: 'Cầu lông', g: 2, modes: ['time'], lv: [['Giải trí', 5.5], ['Thi đấu', 7.0]], alias: 'cau long, badminton' },
+  { id: 'football', name: 'Bóng đá', g: 2, modes: ['time'], lv: [['Giao hữu', 7.0], ['Thi đấu', 10.0]], alias: 'bong da, da bong, football, soccer, futsal' },
+  { id: 'basketball', name: 'Bóng rổ', g: 2, modes: ['time'], lv: [['Giải trí', 6.5], ['Thi đấu', 8.0]], alias: 'bong ro, basketball' },
+  { id: 'volleyball', name: 'Bóng chuyền', g: 2, modes: ['time'], lv: [['Giải trí', 4.0], ['Bãi biển', 8.0]], alias: 'bong chuyen, volleyball' },
+  { id: 'tabletennis', name: 'Bóng bàn', g: 2, modes: ['time'], lv: [['Vừa', 4.0]], alias: 'bong ban, ping pong' },
+  { id: 'tennis', name: 'Tennis', g: 2, modes: ['time'], lv: [['Đánh đôi', 6.0], ['Đánh đơn', 8.0]], alias: 'tennis, quan vot' },
+  { id: 'martial', name: 'Võ / boxing', g: 2, modes: ['time'], lv: [['Tập kỹ thuật', 5.3], ['Đối kháng', 10.3]], alias: 'vo, boxing, kickboxing, vovinam, karate, taekwondo, muay' },
+  { id: 'dance', name: 'Khiêu vũ / nhảy', g: 2, modes: ['time'], lv: [['Vừa', 5.0], ['Sôi động', 7.8]], alias: 'khieu vu, nhay, dance, dancing' },
+  { id: 'housework', name: 'Việc nhà', g: 3, modes: ['time'], lv: [['Nhẹ', 2.5], ['Dọn dẹp mạnh', 3.8]], alias: 'viec nha, don nha, lau nha, don dep' },
+  { id: 'garden', name: 'Làm vườn', g: 3, modes: ['time'], lv: [['Vừa', 3.8]], alias: 'lam vuon' }
 ];
 
 /* ===== Ăn Đủ — lõi: tiện ích, dữ liệu, tính toán, lưu trữ ===== */
@@ -1225,6 +1272,108 @@ function parseQuick(text) {
   });
 }
 
+// ---------- Vận động ----------
+const ACT = new Map(ACTS.map((a) => [a.id, Object.assign(a, { al: [norm(a.name), ...a.alias.split(',').map(norm)].filter(Boolean) })]));
+const MODE_NAME = { dist: 'Quãng đường', time: 'Thời gian', steps: 'Số bước', reps: 'Số lần', floors: 'Số tầng' };
+function interp(tbl, x) {
+  if (x <= tbl[0][0]) return tbl[0][1];
+  for (let i = 1; i < tbl.length; i++) {
+    if (x <= tbl[i][0]) { const [x0, y0] = tbl[i - 1], [x1, y1] = tbl[i]; return y0 + (y1 - y0) * (x - x0) / (x1 - x0); }
+  }
+  return tbl[tbl.length - 1][1];
+}
+const stepLenKm = (h) => 0.415 * (+h || 165) / 100 / 1000;   // chiều dài bước ≈ 41,5% chiều cao
+const defLv = (a) => Math.floor((a.lv.length - 1) / 2);
+// e: { a, mode, km, min, steps, sets, reps, floors, lv } → { kcal, met?, detail, how }
+function actCalc(e, W, H) {
+  const a = ACT.get(e.a);
+  if (!a) return { kcal: e.kcal || 0, detail: e.min ? `${e.min} phút` : '', how: '' };
+  const lv = a.lv[Math.min(e.lv == null ? defLv(a) : e.lv, a.lv.length - 1)];
+  const kg = NF1.format(W);
+  if (e.mode === 'dist') {
+    const km = +e.km || 0, min = +e.min || 0;
+    if (min > 0 && a.speed && km > 0) {
+      const v = km / (min / 60), met = interp(a.speed, v);
+      const fast = (a.id === 'run' && v > 22) || (a.id === 'walk' && v > 9) || (a.id === 'bike' && v > 45) || (a.id === 'swim' && v > 6);
+      return { kcal: met * W * min / 60, detail: `${NF2.format(km)} km · ${fq(min)} phút (${NF1.format(v)} km/h)`, how: (fast ? `Tốc độ ${NF1.format(v)} km/h có vẻ quá nhanh, hãy kiểm tra lại thời gian. ` : '') + `Tốc độ ${NF1.format(v)} km/h → MET ${NF1.format(met)} × ${kg} kg × ${fq(min)} phút ÷ 60` };
+    }
+    return { kcal: (a.perKm || 0) * W * km, detail: `${NF2.format(km)} km`, how: `${NF2.format(a.perKm)} kcal × ${kg} kg × ${NF2.format(km)} km` };
+  }
+  if (e.mode === 'steps') {
+    const steps = +e.steps || 0, km = steps * stepLenKm(H);
+    return { kcal: (a.perKm || 0.72) * W * km, detail: `${NF0.format(steps)} bước ≈ ${NF1.format(km)} km`, how: `${NF0.format(steps)} bước × ${NF2.format(stepLenKm(H) * 1000)} m/bước ≈ ${NF1.format(km)} km; ${NF2.format(a.perKm)} kcal × ${kg} kg × km` };
+  }
+  if (e.mode === 'reps') {
+    const sets = Math.max(1, +e.sets || 1), reps = +e.reps || 0, n = sets * reps;
+    return { kcal: (a.perRep || 0) * W * n, detail: sets > 1 ? `${sets} hiệp × ${reps} lần` : `${reps} lần`, how: `${n} lần × ${NF2.format((a.perRep || 0) * W)} kcal/lần (theo ${kg} kg)` };
+  }
+  if (e.mode === 'floors') {
+    const f = +e.floors || 0;
+    return { kcal: (a.perFloor || 0) * W * f, detail: `${f} tầng`, how: `${f} tầng × ${NF2.format((a.perFloor || 0) * W)} kcal/tầng (theo ${kg} kg)` };
+  }
+  const min = +e.min || 0;
+  return { kcal: lv[1] * W * min / 60, met: lv[1], detail: `${fq(min)} phút · ${lv[0].toLowerCase()}`, how: `MET ${NF1.format(lv[1])} × ${kg} kg × ${fq(min)} phút ÷ 60` };
+}
+function actByText(t) {
+  const s = ' ' + t + ' ';
+  let best = null, len = 0;
+  ACT.forEach((a) => a.al.forEach((al) => { if (al.length > len && s.includes(' ' + al + ' ')) { best = a; len = al.length; } }));
+  return best;
+}
+// "chạy bộ 2 km 12 phút, kéo xà 3x10, đi bộ 8.000 bước, HIIT 10p, leo 5 tầng, plank 90 giây"
+function parseActs(text) {
+  const chunks = String(text || '').split(/[\n,;+]|\s(?:và|va)\s/i).map((x) => x.trim()).filter(Boolean);
+  return chunks.map((raw) => {
+    let s = ' ' + norm(raw).replace(/(\d),(\d)/g, '$1.$2') + ' ';
+    const a = actByText(s);
+    const r = { raw, a: a ? a.id : null };
+    if (!a) return r;
+    let m;
+    const num = (x) => Number(x);
+    if ((m = s.match(/\s(\d{1,3}(?:\.\d{3})+|\d+(?:\.\d+)?)\s*(k)?\s*(buoc|step|steps)(?=\s)/))) {
+      let v = m[1].includes('.') && /^\d{1,3}(\.\d{3})+$/.test(m[1]) ? num(m[1].replace(/\./g, '')) : num(m[1]);
+      if (m[2]) v *= 1000;
+      r.steps = Math.round(v); s = s.replace(m[0], ' ');
+    }
+    if ((m = s.match(/\s(\d+(?:\.\d+)?)\s*km(?=\s)/))) { r.km = num(m[1]); s = s.replace(m[0], ' '); }
+    else if ((m = s.match(/\s(\d+)\s*(m|met|mét)(?=\s)/))) { r.km = num(m[1]) / 1000; s = s.replace(m[0], ' '); }
+    if ((m = s.match(/\s(\d+(?:\.\d+)?)\s*(gio|h|tieng)(?=\s)/))) { r.min = num(m[1]) * 60; s = s.replace(m[0], ' '); }
+    if ((m = s.match(/\s(\d+(?:\.\d+)?)\s*(phut|ph|p|min|mins|')(?=\s)/))) { r.min = (r.min || 0) + num(m[1]); s = s.replace(m[0], ' '); }
+    if ((m = s.match(/\s(\d+)\s*(giay|s|sec|giây)(?=\s)/))) { r.min = (r.min || 0) + num(m[1]) / 60; s = s.replace(m[0], ' '); }
+    if ((m = s.match(/\s(\d+)\s*(?:x|\*|hiep|set|sets)\s*(\d+)(?:\s*(?:lan|cai|rep|reps))?(?=\s)/))) { r.sets = num(m[1]); r.reps = num(m[2]); s = s.replace(m[0], ' '); }
+    else if ((m = s.match(/\s(\d+)\s*(lan|cai|rep|reps|qua|nhip)(?=\s)/))) { r.sets = 1; r.reps = num(m[1]); s = s.replace(m[0], ' '); }
+    if ((m = s.match(/\s(\d+)\s*(tang|lau)(?=\s)/))) { r.floors = num(m[1]); s = s.replace(m[0], ' '); }
+    if (r.steps == null && r.km == null && r.min == null && r.reps == null && r.floors == null && (m = s.match(/\s(\d+(?:\.\d+)?)(?=\s)/))) {
+      const v = num(m[1]), first = a.modes[0];
+      if (first === 'reps') { r.sets = 1; r.reps = v; } else if (first === 'floors') r.floors = v;
+      else if (first === 'steps' && v >= 100) r.steps = v; else if (first === 'dist' && v <= 60) r.km = v; else r.min = v;
+    }
+    if (r.steps != null && a.modes.includes('steps')) r.mode = 'steps';
+    else if (r.km != null && a.modes.includes('dist')) r.mode = 'dist';
+    else if (r.floors != null && a.modes.includes('floors')) r.mode = 'floors';
+    else if (r.reps != null && a.modes.includes('reps')) r.mode = 'reps';
+    else if (r.min != null && a.modes.includes('time')) r.mode = 'time';
+    if (/\s(nhanh|manh|cao|nang|thi dau|doi khang)\s/.test(s)) r.lv = a.lv.length - 1;
+    else if (/\s(cham|nhe|thong tha|nhe nhang)\s/.test(s)) r.lv = 0;
+    return r;
+  });
+}
+// Calo đã tiêu trong ngày: BMR + sinh hoạt nhẹ (10% BMR) + tiêu hoá thức ăn (10% năng lượng ăn vào) + vận động đã ghi
+function burnInfo(k) {
+  const c = calc(S.profile), d = getDay(k), t = todayKey();
+  const now = new Date();
+  const frac = k < t ? 1 : k > t ? 0 : (now.getHours() * 60 + now.getMinutes()) / 1440;
+  const eaten = sumItems(d.items).k;
+  const ex = (d.acts || []).reduce((s, a) => s + (a.kcal || 0), 0);
+  const bmr = c.bmr * frac, neat = c.bmr * 0.1 * frac, tef = eaten * 0.1;
+  return {
+    frac, bmrDay: c.bmr, bmr, neat, tef, ex, eaten,
+    soFar: bmr + neat + tef + ex,
+    fullDay: c.bmr * 1.1 + tef + ex,
+    time: k === t ? `${pad(now.getHours())}:${pad(now.getMinutes())}` : null
+  };
+}
+
 // ---------- Hồ sơ & mục tiêu ----------
 const ACT_LEVELS = [
   { v: 1.2, name: 'Ít vận động', desc: 'Ngồi nhiều, gần như không tập' },
@@ -1337,11 +1486,13 @@ function demoState() {
     const items = menus[mk].map(([n, g, m]) => { const f = foodByName(n); return f ? entryFrom(f, g, m) : null; }).filter(Boolean);
     st.days[k] = { items, acts: [], t: tg };
   });
-  const w = st.profile.weight;
-  const a2 = (n, met, min) => ({ i: uid(), n, met, min, kcal: Math.round(met * w * min / 60) });
-  st.days[addDays(t, -2)].acts.push(a2('Đi bộ nhanh', 4.3, 40));
-  st.days[addDays(t, -6)].acts.push(a2('Cầu lông', 5.5, 45));
-  st.days[addDays(t, -9)].acts.push(a2('Chạy bộ (8 km/h)', 8.3, 25));
+  const w = st.profile.weight, h = st.profile.height;
+  const a2 = (e) => Object.assign({ i: uid() }, e, { n: ACT.get(e.a).name, kcal: Math.round(actCalc(e, w, h).kcal) });
+  st.days[t].acts.push(a2({ a: 'walk', mode: 'steps', steps: 6000 }));
+  st.days[addDays(t, -2)].acts.push(a2({ a: 'walk', mode: 'time', min: 40, lv: 2 }), a2({ a: 'run', mode: 'dist', km: 3, min: 20 }));
+  st.days[addDays(t, -3)].acts.push(a2({ a: 'pullup', mode: 'reps', sets: 3, reps: 8 }), a2({ a: 'pushup', mode: 'reps', sets: 3, reps: 15 }));
+  st.days[addDays(t, -6)].acts.push(a2({ a: 'badminton', mode: 'time', min: 45, lv: 0 }));
+  st.days[addDays(t, -9)].acts.push(a2({ a: 'hiit', mode: 'time', min: 20, lv: 0 }));
   [[-13, 73.4], [-11, 73.1], [-9, 73.2], [-7, 72.8], [-5, 72.6], [-3, 72.5], [-1, 72.2], [0, 72.0]].forEach(([d, kg]) => st.weights.push({ d: addDays(t, d), kg }));
   st.profile.weight = 72;
   st.recent = ['f-uc-ga-chin', 'f-com-trang', 'f-pho-bo', 'f-trung-ga-luoc', 'f-chuoi'];
@@ -1601,7 +1752,6 @@ const SUGG = {
   c: ['Khoai lang (luộc)', 'Chuối', 'Cơm gạo lứt', 'Yến mạch', 'Ngô luộc'],
   f: ['Hạt điều', 'Quả bơ', 'Lạc rang', 'Hạnh nhân', 'Óc chó']
 };
-const BURN = ['Đi bộ nhanh', 'Đạp xe vừa sức', 'Chạy bộ (8 km/h)', 'Nhảy dây', 'Leo cầu thang', 'Làm việc nhà'];
 const HEALTH_TIPS = [
   ['i-drop', 'Uống đủ nước', (c) => `Khoảng ${NF1.format(c.water)} lít mỗi ngày (35 ml × cân nặng). Khát hay bị nhầm với đói.`],
   ['c-rc', 'Nửa đĩa là rau', () => 'Mỗi bữa chính, để rau củ chiếm nửa đĩa — no lâu mà ít calo.'],
@@ -1688,10 +1838,15 @@ function adviceHTML(info, k) {
     const diff = info.tot.k - info.allow;
     if (info.st === 'high') {
       const ex = Math.round(diff);
-      const chips = BURN.map((n) => ACTIVITIES.find((a) => a[0] === n)).filter(Boolean)
-        .map(([n, met]) => ({ n, min: Math.ceil(ex / (met * W / 60)) })).filter((a) => a.min <= 180).slice(0, 4)
-        .map((a) => `<span>${esc(a.n)} <b class="num">${a.min}</b> phút</span>`).join('');
-      tip('high', 'i-flame', `Dư ${fk(ex)} kcal so với mục tiêu`, `<p>Vận động thêm để đốt phần dư (tính theo cân nặng ${fg(W)} kg):</p><div class="burn">${chips}</div><p style="margin-top:8px">Ghi lại hoạt động ở mục Vận động để cân bằng. Hoặc bữa sau bớt nửa bát cơm (≈ 100 kcal).</p>`);
+      const H = +S.profile.height;
+      const chips = [
+        ['Đi bộ', NF0.format(Math.round(ex / (0.72 * W) / stepLenKm(H) / 100) * 100), 'bước'],
+        ['Chạy bộ', NF1.format(ex / W), 'km'],
+        ['Đạp xe', NF1.format(ex / (0.39 * W)), 'km'],
+        ['Nhảy dây', Math.ceil(ex / (11.8 * W / 60)), 'phút'],
+        ['HIIT', Math.ceil(ex / (8 * W / 60)), 'phút']
+      ].map(([n, v, u]) => `<span>${n} <b class="num">${v}</b> ${u}</span>`).join('');
+      tip('high', 'i-flame', `Dư ${fk(ex)} kcal so với mục tiêu`, `<p>Vận động thêm để đốt phần dư (tính theo cân nặng ${fg(W)} kg):</p><div class="burn">${chips}</div><p style="margin-top:8px">Chọn một trong các cách trên rồi ghi ở mục Calo đã tiêu. Hoặc bữa sau bớt nửa bát cơm (≈ 100 kcal).</p>`);
     } else if (info.st === 'ok') {
       tip('ok', 'i-check', 'Đã đủ năng lượng hôm nay', `<p>${diff >= 0 ? `Chỉ chênh +${fk(diff)} kcal, nằm trong mức cho phép.` : `Còn ${fk(-diff)} kcal — có thể dừng ở đây hoặc ăn nhẹ một phần trái cây.`}</p>`);
     } else {
@@ -1784,16 +1939,140 @@ function tableHTML(info) {
   return `<div class="table-wrap"><table class="daytable"><thead><tr><th>Món</th><th>Gam</th><th>kcal</th><th>Carb</th><th>Đạm</th><th>Béo</th><th>Xơ</th></tr></thead><tbody>${rows}</tbody></table></div>
     <button class="btn block" data-action="add" data-meal="${mealByClock()}">${ic('i-plus')}Thêm món</button>`;
 }
-function actsHTML(info) {
+// ---------- Calo đã tiêu ----------
+function burnCardHTML(info, k) {
+  const b = burnInfo(k), W = weightKg(), H = +S.profile.height;
   const acts = info.d.acts || [];
-  const W = weightKg();
+  const total = b.time ? b.soFar : b.fullDay;
+  const parts = [['Cơ thể nghỉ ngơi (BMR)', b.time ? b.bmr : b.bmrDay, 'var(--pro)'], ['Sinh hoạt nhẹ', b.time ? b.neat : b.bmrDay * 0.1, 'var(--sky)'], ['Tiêu hoá thức ăn', b.tef, 'var(--fat)'], ['Vận động', b.ex, 'var(--brand)']];
+  const sum = parts.reduce((s, p) => s + p[1], 0) || 1;
   const list = acts.length
-    ? `<ul class="items">${acts.map((a) => `<li><button class="item" data-action="edit-act" data-id="${a.i}"><div class="item-main"><div class="item-name">${esc(a.n)}</div><div class="item-sub"><span>${a.min} phút · MET ${NF1.format(a.met)}</span></div></div><div class="item-kcal num">−${fk(a.kcal)}</div></button></li>`).join('')}</ul>`
-    : `<div class="empty-meal"><span>Chưa ghi vận động. Đi bộ nhanh 30 phút ≈ ${fk(4.3 * W / 2)} kcal.</span></div>`;
-  return `<article class="acts"><header class="meal-head"><div class="meal-title"><h3>Vận động</h3><span>${S.settings.burnBack ? 'Calo đốt được cộng vào mục tiêu ngày' : 'Chỉ ghi lại, không cộng vào mục tiêu'}</span></div>
-    <div class="meal-kcal num">${fk(info.burned)}<small>kcal</small></div>
-    <button class="add-btn" data-action="add-act" aria-label="Thêm vận động">${ic('i-plus', 'sm')}Thêm</button></header>${list}</article>`;
+    ? `<ul class="items">${acts.map((a) => {
+        const det = a.a ? actCalc(a, W, H).detail : `${a.min} phút`;
+        return `<li><button class="item" data-action="edit-act" data-id="${a.i}"><span class="act-ic">${ic('i-flame', 'sm')}</span><div class="item-main"><div class="item-name">${esc(a.n)}</div><div class="item-sub"><span>${esc(det)}</span></div></div><div class="item-kcal num">−${fk(a.kcal)}</div></button></li>`;
+      }).join('')}</ul>`
+    : '';
+  const bal = info.tot.k - b.fullDay;
+  const maxIO = Math.max(info.tot.k, b.fullDay, 1);
+  const balTxt = !info.has ? 'Chưa ghi món ăn nào nên chưa tính được cân bằng.'
+    : bal < 0 ? `Thâm hụt <b class="num">${fk(-bal)} kcal</b> ≈ giảm ${NF2.format(-bal / 7700)} kg mỡ`
+      : `Dư <b class="num">${fk(bal)} kcal</b> ≈ tăng ${NF2.format(bal / 7700)} kg mỡ`;
+  return `<article class="burn-card">
+    <header class="meal-head"><div class="meal-title"><h3>Calo đã tiêu</h3><span class="num">${b.time ? `Tính đến ${b.time} · cả ngày ≈ ${fk(b.fullDay)} kcal` : k > todayKey() ? `Dự kiến cả ngày ≈ ${fk(b.fullDay)} kcal` : 'Cả ngày'}</span></div>
+      <div class="meal-kcal num">${fk(total)}<small>kcal</small></div>
+      <button class="add-btn" data-action="add-act" aria-label="Thêm vận động">${ic('i-plus', 'sm')}Vận động</button></header>
+    <div class="burn-body">
+      <span class="mix tall" aria-hidden="true">${parts.map((p) => `<i style="flex:${Math.max(0.001, p[1] / sum)};background:${p[2]}"></i>`).join('')}</span>
+      <ul class="burn-parts">${parts.map((p) => `<li><i style="background:${p[2]}"></i><span>${p[0]}</span><b class="num">${fk(p[1])}</b></li>`).join('')}</ul>
+      <div class="actq"><div class="searchbox">${ic('i-flame')}<input class="input" id="act-quick" autocomplete="off" value="${esc(UI.actQ || '')}" placeholder="Gõ nhanh: chạy bộ 2 km, kéo xà 3x10, HIIT 10 phút" aria-label="Gõ nhanh vận động"></div>
+        <ul class="parsed" id="act-quick-res"></ul></div>
+      ${list}
+      <div class="balance">
+        <div class="bal-row"><span>Ăn vào</span><span class="bal-bar"><b style="width:${(info.tot.k / maxIO * 100).toFixed(1)}%;background:var(--ok)"></b></span><b class="num">${fk(info.tot.k)}</b></div>
+        <div class="bal-row"><span>Tiêu hao${b.time ? '*' : ''}</span><span class="bal-bar"><b style="width:${(b.fullDay / maxIO * 100).toFixed(1)}%;background:var(--pro)"></b></span><b class="num">${fk(b.fullDay)}</b></div>
+        <p class="bal-res" data-st="${!info.has ? 'none' : bal < 0 ? 'def' : 'sur'}">${balTxt}</p>
+        ${b.time ? '<p class="hint">* Tiêu hao dự kiến cả ngày, gồm vận động đã ghi.</p>' : ''}
+      </div>
+      <details class="how"><summary>Cách tính calo đã tiêu</summary>
+        <p class="formula">Cơ thể nghỉ ngơi = BMR ${fk(b.bmrDay)} kcal/ngày, chia đều theo giờ. Sinh hoạt nhẹ (đi lại, đứng, làm việc) ≈ 10% BMR. Tiêu hoá thức ăn ≈ 10% năng lượng ăn vào. Vận động: chạy ≈ 1 kcal × kg × km, đi bộ ≈ 0,72 kcal × kg × km (bước dài ≈ 41,5% chiều cao), các môn khác theo MET × kg × giờ; kéo xà, hít đất… theo số lần. Nếu bạn ghi mọi buổi tập ở đây, nên chọn mức vận động “Ít vận động” hoặc “Vận động nhẹ” trong Hồ sơ để mục tiêu không tính trùng.</p>
+      </details>
+    </div></article>`;
 }
+function updateActQuick() {
+  const el = $('#act-quick-res'); if (!el) return;
+  const W = weightKg(), H = +S.profile.height;
+  const rows = parseActs(UI.actQ || '');
+  UI.actParsed = rows;
+  if (!rows.length) { el.innerHTML = ''; return; }
+  const ok = rows.filter((r) => r.a && r.mode);
+  const tot = ok.reduce((s, r) => s + Math.round(actCalc(r, W, H).kcal), 0);
+  el.innerHTML = rows.map((r) => {
+    if (!r.a) return `<li class="miss"><div class="p-main"><div class="p-name">Chưa nhận ra “${esc(r.raw)}”</div><div class="p-src">Thử: chạy bộ, đi bộ, kéo xà, hít đất, HIIT, đạp xe…</div></div></li>`;
+    const a = ACT.get(r.a);
+    if (!r.mode) return `<li class="miss"><div class="p-main"><div class="p-name">${esc(a.name)}: thiếu số lượng</div><div class="p-src">Ví dụ: ${a.modes[0] === 'reps' ? '3x10 hoặc 30 lần' : a.modes[0] === 'dist' ? '2 km' : a.modes[0] === 'steps' ? '8000 bước' : a.modes[0] === 'floors' ? '5 tầng' : '20 phút'}</div></div></li>`;
+    const c = actCalc(r, W, H);
+    return `<li><div class="p-main"><div class="p-name">${esc(a.name)}</div><div class="p-src">${esc(c.detail)}</div></div><div class="p-k num">−${fk(c.kcal)}</div></li>`;
+  }).join('') + (ok.length ? `<li class="p-go"><button class="btn primary block" data-action="actq-commit">${ic('i-flame')}Ghi ${ok.length} hoạt động · −${fk(tot)} kcal</button></li>` : '');
+}
+
+// -- Sheet vận động
+const ACT_DEF = { km: 3, min: 30, steps: 6000, sets: 3, reps: 10, floors: 5 };
+function actDraft(a, mode) {
+  const d = { mode: mode || a.modes[0], lv: defLv(a) };
+  if (d.mode === 'dist') { d.km = a.id === 'bike' ? 10 : a.id === 'swim' ? 0.5 : a.id === 'walk' ? 2 : ACT_DEF.km; d.min = ''; }
+  if (d.mode === 'time') d.min = ACT_DEF.min;
+  if (d.mode === 'steps') d.steps = ACT_DEF.steps;
+  if (d.mode === 'reps') { d.sets = ACT_DEF.sets; d.reps = ACT_DEF.reps; }
+  if (d.mode === 'floors') d.floors = ACT_DEF.floors;
+  return d;
+}
+function actPickHTML(st) {
+  const qn = norm(st.q || '');
+  const match = (a) => !qn || a.al.some((x) => x.includes(qn)) || norm(a.name).includes(qn);
+  const groups = ACT_GROUPS.map((g, gi) => {
+    const items = ACTS.filter((a) => a.g === gi && match(a));
+    return items.length ? `<div class="field"><span>${g}</span><div class="chips wrap">${items.map((a) => `<button class="chip act-chip" data-action="act-choose" data-a="${a.id}">${esc(a.name)}<em>${a.modes.map((m) => ({ dist: 'km', time: 'phút', steps: 'bước', reps: 'lần', floors: 'tầng' }[m])).join(' · ')}</em></button>`).join('')}</div></div>` : '';
+  }).join('');
+  return `${topBar('Thêm vận động')}
+    <div class="searchbox">${ic('i-search')}<input class="input" id="act-q" type="search" autocomplete="off" value="${esc(st.q || '')}" placeholder="Tìm: chạy, kéo xà, bơi, cầu lông…" data-autofocus aria-label="Tìm vận động"></div>
+    <div id="act-groups" class="stack">${groups || '<p class="muted">Không tìm thấy. Thử tên khác hoặc chọn “HIIT”, “Tập tạ / gym”.</p>'}</div>`;
+}
+function actSheetHTML(st) {
+  if (!st.a) return actPickHTML(st);
+  const a = ACT.get(st.a), d = st.d;
+  const unitName = { dist: 'Quãng đường', time: 'Thời gian', steps: 'Số bước', reps: 'Số lần', floors: 'Số tầng' };
+  let inputs = '';
+  if (d.mode === 'dist') inputs = `<div class="grid2"><div class="field"><label for="ad-km">Quãng đường</label>${numField('ad-km', 'km', d.km, 'km', a.id === 'swim' ? 0.1 : 0.5)}</div>
+      <div class="field"><label for="ad-min">Thời gian (không bắt buộc)</label>${numField('ad-min', 'min', d.min, 'phút', 1, 'numeric')}</div></div>
+      <p class="hint">${a.speed ? 'Nhập thêm thời gian để app tính theo tốc độ của bạn.' : ''}</p>`;
+  if (d.mode === 'time') inputs = `<div class="field"><label for="ad-min">Thời gian</label>${numField('ad-min', 'min', d.min, 'phút', 5, 'decimal')}</div>
+      ${a.lv.length > 1 ? `<div class="field"><span>Cường độ</span><div class="chips wrap">${a.lv.map((l, i) => `<button class="chip" data-action="act-lv" data-i="${i}" aria-pressed="${d.lv === i}">${esc(l[0])}</button>`).join('')}</div></div>` : ''}`;
+  if (d.mode === 'steps') inputs = `<div class="field"><label for="ad-steps">Số bước</label>${numField('ad-steps', 'steps', d.steps, 'bước', 500, 'numeric')}</div><p class="hint">Xem số bước trong ứng dụng sức khoẻ của điện thoại hoặc đồng hồ.</p>`;
+  if (d.mode === 'reps') inputs = `<div class="grid2"><div class="field"><label for="ad-sets">Số hiệp</label>${numField('ad-sets', 'sets', d.sets, 'hiệp', 1, 'numeric')}</div>
+      <div class="field"><label for="ad-reps">Mỗi hiệp</label>${numField('ad-reps', 'reps', d.reps, 'lần', 1, 'numeric')}</div></div>`;
+  if (d.mode === 'floors') inputs = `<div class="field"><label for="ad-floors">Số tầng leo lên</label>${numField('ad-floors', 'floors', d.floors, 'tầng', 1, 'numeric')}</div>`;
+  return `${topBar(esc(a.name), st.edit ? '' : 'act-back')}
+    ${a.modes.length > 1 ? `<div class="seg wide" role="group" aria-label="Cách nhập">${a.modes.map((m) => `<button data-action="act-mode" data-v="${m}" aria-pressed="${d.mode === m}">${unitName[m]}</button>`).join('')}</div>` : ''}
+    ${inputs}
+    <div class="preview" id="act-pv"></div>
+    <div class="sheet-foot">${st.edit ? `<div class="row"><button class="btn danger" data-action="del-act">${ic('i-trash')}Xoá</button><button class="btn primary" style="flex:1" data-action="act-commit">Lưu</button></div>` : `<button class="btn primary block" data-action="act-commit">${ic('i-flame')}Ghi vận động</button>`}</div>`;
+}
+function updateActPreview() {
+  const st = UI.sheet, el = $('#act-pv'); if (!el || !st.a) return;
+  const c = actCalc(Object.assign({ a: st.a }, st.d), weightKg(), +S.profile.height);
+  st.kcal = c.kcal;
+  el.innerHTML = `<div class="preview-top"><b class="num">−${fk(c.kcal)} <span style="font-size:15px">kcal</span></b><span>${esc(c.detail)}</span></div><p class="hint">${esc(c.how)}</p>`;
+}
+function actRecord(aid, d, id) {
+  const a = ACT.get(aid);
+  const rec = { i: id || uid(), a: aid, n: a.name, mode: d.mode };
+  ({ dist: ['km', 'min'], time: ['min', 'lv'], steps: ['steps'], reps: ['sets', 'reps'], floors: ['floors'] }[d.mode] || []).forEach((f) => { if (d[f] !== '' && d[f] != null) rec[f] = +d[f]; });
+  rec.kcal = Math.round(actCalc(rec, weightKg(), +S.profile.height).kcal);
+  return rec;
+}
+
+// -- Biểu đồ cân bằng năng lượng
+function balanceChart(keys, width) {
+  const H = 210, L = 52, R = 14, T = 16, B = 30, n = keys.length;
+  const vals = keys.map((k) => { const d = getDay(k); return d.items.length ? sumItems(d.items).k - burnInfo(k).fullDay : null; });
+  const m = Math.max(500, ...vals.filter((v) => v != null).map((v) => Math.abs(v)));
+  const step = m > 1600 ? 1000 : 500, top = Math.ceil(m / step) * step;
+  const iw = width - L - R, ih = H - T - B, cw = iw / n;
+  const y = (v) => T + ih / 2 - (v / top) * (ih / 2);
+  const bw = Math.max(4, Math.min(26, cw * 0.6));
+  let s = `<svg class="chart" viewBox="0 0 ${width} ${H}" width="${width}" height="${H}" role="img" aria-label="Biểu đồ cân bằng năng lượng mỗi ngày">`;
+  [-top, 0, top].forEach((v) => { s += `<line class="grid" x1="${L}" x2="${width - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v > 0 ? '+' : v < 0 ? '−' : ''}${fk(Math.abs(v))}</text>`; });
+  vals.forEach((v, i) => {
+    if (v == null) return;
+    const x = L + cw * (i + 0.5) - bw / 2, y0 = y(0), y1 = y(v);
+    s += `<rect class="${v < 0 ? 'b-def' : 'b-sur'}" x="${x.toFixed(1)}" y="${Math.min(y0, y1).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, Math.abs(y1 - y0)).toFixed(1)}" rx="${Math.min(6, bw / 2).toFixed(1)}"><title>${shortDate(keys[i])}: ${v < 0 ? 'thâm hụt' : 'dư'} ${fk(Math.abs(v))} kcal</title></rect>`;
+  });
+  const every = n <= 7 ? 1 : n <= 14 ? 2 : 5;
+  keys.forEach((k, i) => { if ((n - 1 - i) % every) return; const d = dateOf(k); s += `<text x="${L + cw * (i + 0.5)}" y="${H - 9}" text-anchor="middle">${n <= 7 ? WDS[d.getDay()] + ' ' + d.getDate() : shortDate(k)}</text>`; });
+  const tot = vals.reduce((a, v) => a + (v || 0), 0);
+  return { svg: s + '</svg>', tot, days: vals.filter((v) => v != null).length };
+}
+
 function renderToday() {
   const k = UI.date, t = todayKey();
   const info = dayInfo(k);
@@ -1831,7 +2110,7 @@ function renderToday() {
           <div class="plate-wrap">${plateSVG(info, anim)}
             <div class="plate-center"><div class="big num">${fk(info.tot.k)}</div><div class="of num">/ ${fk(info.allow)} kcal</div><div class="left num">${leftTxt}</div></div>
           </div>
-          <div class="kcal-row"><div><b class="num">${fk(info.T.k)}</b><span>Mục tiêu</span></div><div><b class="num">${fk(info.tot.k)}</b><span>Đã ăn</span></div><div><b class="num">${fk(info.burned)}</b><span>Vận động</span></div></div>
+          <div class="kcal-row"><div><b class="num">${fk(info.T.k)}</b><span>Mục tiêu</span></div><div><b class="num">${fk(info.tot.k)}</b><span>Đã ăn</span></div><div><b class="num">${fk(burnInfo(k).time ? burnInfo(k).soFar : burnInfo(k).fullDay)}</b><span>Đã tiêu</span></div></div>
           <div class="macros">${macroBars(info)}</div>
         </section>
         ${adviceHTML(info, k)}
@@ -1841,9 +2120,10 @@ function renderToday() {
           <div class="seg" role="group" aria-label="Kiểu xem"><button data-action="set-view" data-v="list" aria-pressed="${S.settings.view !== 'table'}">${ic('i-list', 'sm')}Theo bữa</button><button data-action="set-view" data-v="table" aria-pressed="${S.settings.view === 'table'}">${ic('i-table', 'sm')}Bảng</button></div>
         </div>
         ${S.settings.view === 'table' ? tableHTML(info) : mealsHTML(info, k)}
-        ${actsHTML(info)}
+        ${burnCardHTML(info, k)}
       </div>
     </div>`;
+  if (UI.actQ) updateActQuick();
 }
 
 // ---------- Thực phẩm ----------
@@ -1977,6 +2257,11 @@ function renderProgress() {
       <div style="overflow-x:auto">${kcalChart(keys, width)}</div>
       <div class="legend"><span><i style="background:var(--low)"></i>Thiếu</span><span><i style="background:var(--ok)"></i>Đủ</span><span><i style="background:var(--high)"></i>Thừa</span><span><i style="background:transparent;border-top:2px dashed var(--ink);height:0;border-radius:0"></i>Mục tiêu (gồm vận động)</span></div>
     </section>
+    ${(() => { const bc = balanceChart(keys, width); return `<section class="card"><div class="card-head"><h2>Cân bằng năng lượng</h2><span class="muted small">ăn vào − tiêu hao</span></div>
+      ${bc.days ? `<p class="bal-sum">${bc.tot < 0 ? `${n} ngày qua thâm hụt <b class="num">${fk(-bc.tot)} kcal</b> ≈ giảm ${NF2.format(-bc.tot / 7700)} kg mỡ` : `${n} ngày qua dư <b class="num">${fk(bc.tot)} kcal</b> ≈ tăng ${NF2.format(bc.tot / 7700)} kg mỡ`}</p>
+      <div style="overflow-x:auto">${bc.svg}</div>
+      <div class="legend"><span><i style="background:var(--sky)"></i>Thâm hụt (tiêu nhiều hơn ăn)</span><span><i style="background:var(--peach)"></i>Dư (ăn nhiều hơn tiêu)</span></div>` : '<p class="muted">Ghi món ăn vài ngày để thấy cân bằng năng lượng.</p>'}
+    </section>`; })()}
     <section class="card"><div class="card-head"><h2>Dinh dưỡng trung bình</h2><span class="muted small">${logged.length} ngày có ghi</span></div>
       <div class="avgm">${logged.length ? macroBars({ has: true, tot: { c: avg((i) => i.tot.c), p: avg((i) => i.tot.p), f: avg((i) => i.tot.f), x: avg((i) => i.tot.x) }, T: { c: avg((i) => i.T.c), p: avg((i) => i.T.p), f: avg((i) => i.T.f), x: avg((i) => i.T.x) }, ms: (() => { const tt = { c: avg((i) => i.tot.c), p: avg((i) => i.tot.p), f: avg((i) => i.tot.f), x: avg((i) => i.tot.x) }; const TT = { c: avg((i) => i.T.c), p: avg((i) => i.T.p), f: avg((i) => i.T.f), x: avg((i) => i.T.x) }; return { c: mStatus('c', tt.c, TT.c), p: mStatus('p', tt.p, TT.p), f: mStatus('f', tt.f, TT.f), x: mStatus('x', tt.x, TT.x) }; })() }) : '<p class="muted">Chưa có ngày nào được ghi trong khoảng này.</p>'}</div>
     </section>
@@ -2115,7 +2400,7 @@ function revealTargets(oldT) {
 
 // -- Sheet: thông tin cá nhân (nháp, chỉ lưu khi bấm Lưu / Tiếp tục)
 const numField = (id, k, val, unit, step, mode = 'decimal') => `<div class="numfield"><button class="iconbtn" data-action="dstep" data-k="${k}" data-d="-${step}" aria-label="Giảm">${ic('i-minus')}</button>
-  <div class="input-unit"><input class="input num" id="${id}" data-d-k="${k}" inputmode="${mode}" value="${val === '' || val == null ? '' : fq(val)}" placeholder="—"><em>${unit}</em></div>
+  <div class="input-unit"><input class="input num" id="${id}" data-d-k="${k}" inputmode="${mode}" value="${val === '' || val == null ? '' : k === 'steps' ? String(Math.round(val)) : fq(val)}" placeholder="—"><em>${unit}</em></div>
   <button class="iconbtn" data-action="dstep" data-k="${k}" data-d="${step}" aria-label="Tăng">${ic('i-plus')}</button></div>`;
 function meSheetHTML(st) {
   const d = st.d;
@@ -2297,23 +2582,6 @@ function updateFoodPreview() {
   const f = sheetFood(st), r = st.g / 100;
   el.innerHTML = `<div class="preview-top"><b class="num">${fk(f.k * r)} <span style="font-size:15px">kcal</span></b><span class="num">${fg(st.g)} g</span></div>
     <div class="mini-macros">${MC.map(([k, n, cls]) => `<div class="m-${cls}"><b class="num">${fg(f[k] * r)}</b><span>${k === 'x' ? 'Xơ' : n} (g)</span></div>`).join('')}</div>`;
-}
-
-// -- Vận động
-function actSheetHTML(st) {
-  return `${topBar(st.edit ? 'Sửa vận động' : 'Thêm vận động')}
-    <div class="chips wrap" role="group" aria-label="Hoạt động">${ACTIVITIES.map(([n, met]) => `<button class="chip" data-action="act-pick" data-n="${esc(n)}" data-met="${met}" aria-pressed="${st.n === n}">${esc(n)}</button>`).join('')}</div>
-    <div class="field"><label for="act-min">Thời gian (phút)</label>
-      <div class="stepper"><button class="iconbtn" data-action="act-step" data-d="-5" aria-label="Giảm 5 phút">${ic('i-minus')}</button>
-      <input class="input num" id="act-min" inputmode="numeric" value="${st.min}"><button class="iconbtn" data-action="act-step" data-d="5" aria-label="Tăng 5 phút">${ic('i-plus')}</button></div></div>
-    <div class="preview" id="act-pv"></div>
-    <div class="sheet-foot">${st.edit ? `<div class="row"><button class="btn danger" data-action="del-act">${ic('i-trash')}Xoá</button><button class="btn primary" style="flex:1" data-action="act-commit">Lưu</button></div>` : `<button class="btn primary block" data-action="act-commit">${ic('i-flame')}Ghi vận động</button>`}</div>`;
-}
-function updateActPreview() {
-  const st = UI.sheet, el = $('#act-pv'); if (!el) return;
-  const kcal = Math.round(st.met * weightKg() * (st.min || 0) / 60);
-  st.kcal = kcal;
-  el.innerHTML = `<div class="preview-top"><b class="num">−${fk(kcal)} <span style="font-size:15px">kcal</span></b><span>${esc(st.n)} · MET ${NF1.format(st.met)}</span></div><p class="hint">kcal ≈ MET × ${fg(weightKg())} kg × ${st.min || 0} phút ÷ 60</p>`;
 }
 
 // -- Món tự tạo
@@ -2499,11 +2767,12 @@ document.addEventListener('click', (ev) => {
     }
     case 'dstep': {
       const k = el.dataset.k, step = +el.dataset.d;
-      const lim = { age: [10, 100], height: [100, 230], weight: [25, 300], tw: [25, 300] }[k];
+      const lim = { age: [10, 100], height: [100, 230], weight: [25, 300], tw: [25, 300], km: [0, 300], min: [0, 1440], steps: [0, 200000], sets: [1, 50], reps: [0, 2000], floors: [0, 500] }[k];
       const cur = +st.d[k] || (k === 'tw' ? +st.d.weight : 0);
+      if (k === 'sets' && cur + step < 1) break;
       st.d[k] = clamp(Math.round((cur + step) * 10) / 10, lim[0], lim[1]);
-      const inp = $(`#sheet [data-d-k="${k}"]`); if (inp) inp.value = fq(st.d[k]);
-      if (st.type === 'me') updateMeLive(); else updateGoalLive();
+      const inp = $(`#sheet [data-d-k="${k}"]`); if (inp) inp.value = k === 'steps' ? String(st.d[k]) : fq(st.d[k]);
+      if (st.type === 'me') updateMeLive(); else if (st.type === 'goal') updateGoalLive(); else updateActPreview();
       break;
     }
     case 'me-commit': {
@@ -2649,21 +2918,42 @@ document.addEventListener('click', (ev) => {
       toast(`Đã thêm ${name}`);
       break;
     }
-    case 'add-act': openSheet({ type: 'act', n: 'Đi bộ nhanh', met: 4.3, min: 30 }); break;
+    case 'add-act': openSheet({ type: 'act', a: null, q: '' }); break;
     case 'edit-act': {
-      const a2 = (getDay(UI.date).acts || []).find((x) => x.i === el.dataset.id); if (!a2) break;
-      openSheet({ type: 'act', edit: a2.i, n: a2.n, met: a2.met, min: a2.min });
+      const e = (getDay(UI.date).acts || []).find((x) => x.i === el.dataset.id); if (!e) break;
+      if (e.a && ACT.has(e.a)) {
+        const a = ACT.get(e.a);
+        openSheet({ type: 'act', a: e.a, edit: e.i, d: { mode: e.mode || 'time', km: e.km != null ? e.km : '', min: e.min != null ? e.min : '', steps: e.steps, sets: e.sets, reps: e.reps, floors: e.floors, lv: e.lv != null ? e.lv : defLv(a) } });
+      } else {
+        const a = actByText(' ' + norm(e.n) + ' ') || ACT.get('hiit');
+        openSheet({ type: 'act', a: a.id, edit: e.i, d: { mode: 'time', min: e.min || 30, lv: defLv(a) } });
+      }
       break;
     }
-    case 'act-pick': st.n = el.dataset.n; st.met = +el.dataset.met; $$('[data-action="act-pick"]').forEach((b) => b.setAttribute('aria-pressed', b === el)); updateActPreview(); break;
-    case 'act-step': st.min = Math.max(5, (Math.round((+st.min || 0) / 5) * 5) + (+el.dataset.d)); $('#act-min').value = st.min; updateActPreview(); break;
+    case 'act-choose': st.a = el.dataset.a; st.d = actDraft(ACT.get(st.a)); renderSheet(); break;
+    case 'act-back': st.a = null; renderSheet(); break;
+    case 'act-mode': { const a = ACT.get(st.a); st.d = Object.assign(actDraft(a, el.dataset.v), { lv: st.d.lv }); renderSheet(); break; }
+    case 'act-lv': st.d.lv = +el.dataset.i; $$('#sheet [data-action="act-lv"]').forEach((b) => b.setAttribute('aria-pressed', b === el)); updateActPreview(); break;
     case 'act-commit': {
-      if (!(st.min > 0)) { toast('Nhập số phút'); break; }
-      const d = getDay(UI.date, true);
-      const rec = { i: st.edit || uid(), n: st.n, met: st.met, min: +st.min, kcal: Math.round(st.met * weightKg() * st.min / 60) };
-      if (st.edit) d.acts = d.acts.map((x) => (x.i === st.edit ? rec : x)); else d.acts.push(rec);
+      const d = st.d;
+      const amt = { dist: +d.km, time: +d.min, steps: +d.steps, reps: +d.reps, floors: +d.floors }[d.mode];
+      if (!(amt > 0)) { toast('Nhập số lượng lớn hơn 0'); break; }
+      const day = getDay(UI.date, true);
+      const rec = actRecord(st.a, d, st.edit);
+      if (st.edit) day.acts = day.acts.map((x) => (x.i === st.edit ? rec : x)); else day.acts.push(rec);
       persistDay(UI.date); closeSheet(); renderToday();
       toast(`Đã ghi ${rec.n} · −${fk(rec.kcal)} kcal`);
+      break;
+    }
+    case 'actq-commit': {
+      const ok = (UI.actParsed || []).filter((r) => r.a && r.mode);
+      if (!ok.length) break;
+      const day = getDay(UI.date, true);
+      const recs = ok.map((r) => actRecord(r.a, r));
+      day.acts.push(...recs);
+      UI.actQ = ''; UI.actParsed = [];
+      persistDay(UI.date); renderToday();
+      toast(`Đã ghi ${recs.length} hoạt động · −${fk(recs.reduce((s, r) => s + r.kcal, 0))} kcal`);
       break;
     }
     case 'del-act': { const d = getDay(UI.date, true); d.acts = d.acts.filter((x) => x.i !== st.edit); persistDay(UI.date); closeSheet(); renderToday(); toast('Đã xoá vận động'); break; }
@@ -2751,7 +3041,12 @@ document.addEventListener('input', (ev) => {
     const n = parseNum(t.value); if (!(n > 0)) return;
     const u = unitsOf(sheetFood(st))[st.u]; st.g = n * u.g; updateFoodPreview(); return;
   }
-  if (t.id === 'act-min') { st.min = Math.max(0, Math.round(parseNum(t.value) || 0)); updateActPreview(); return; }
+  if (t.id === 'act-quick') { UI.actQ = t.value; clearTimeout(qTimer); qTimer = setTimeout(updateActQuick, 160); return; }
+  if (t.id === 'act-q') { st.q = t.value; renderSheet(); const i = $('#act-q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } return; }
+  if (st && st.type === 'act' && t.dataset.dK) {
+    const k = t.dataset.dK, raw = k === 'steps' ? String(t.value).replace(/[.\s]/g, '') : t.value;
+    const n = parseNum(raw); st.d[k] = n >= 0 ? n : ''; updateActPreview(); return;
+  }
   if (st && (st.type === 'me' || st.type === 'goal')) {
     if (t.dataset.pct) { st.d.custom[t.dataset.pct] = Math.max(0, Math.round(parseNum(t.value) || 0)); updateGoalLive(); return; }
     const k = t.dataset.dK; if (!k) return;
@@ -2783,6 +3078,7 @@ document.addEventListener('change', (ev) => {
 document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Escape' && UI.sheet) closeSheet();
   if (ev.key === 'Enter' && ev.target.id === 'w-today') $('[data-action="save-weight"]').click();
+  if (ev.key === 'Enter' && ev.target.id === 'act-quick') { const b = $('[data-action="actq-commit"]'); if (b) b.click(); }
 });
 let rzTimer = null;
 window.addEventListener('resize', () => { clearTimeout(rzTimer); rzTimer = setTimeout(() => { if (UI.view === 'progress') renderProgress(); }, 200); });
