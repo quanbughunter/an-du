@@ -10,7 +10,7 @@ ROOT = pathlib.Path(__file__).resolve().parent
 SRC = ROOT / 'src'
 DIST = ROOT / 'dist'
 FONTS = ROOT / 'fontsrc'
-VERSION = '1.0.3'
+VERSION = '1.0.4'
 
 def font_css():
     out = []

@@ -45,7 +45,7 @@ Workflow `.github/workflows/build-apk.yml`: vào tab **Actions → Build APK →
 ```bash
 sudo apt install aapt apksigner zipalign android-sdk-platform-23 dalvik-exchange openjdk-17-jdk
 python3 build.py
-VERSION_NAME=1.0.4 VERSION_CODE=5 ./android/build_apk.sh     # → android/out/AnDu-1.0.4.apk
+VERSION_NAME=1.0.5 VERSION_CODE=10005 ./android/build_apk.sh     # → android/out/AnDu-1.0.5.apk (versionCode = MAJOR×10000 + MINOR×100 + PATCH)
 ```
 
 Lần build đầu tiên tạo khoá ký `android/keystore/` (đã bị `.gitignore` chặn). **Giữ khoá này cẩn thận**: muốn cập nhật app đã cài mà không mất dữ liệu thì bản mới phải ký bằng đúng khoá cũ và có `VERSION_CODE` lớn hơn.

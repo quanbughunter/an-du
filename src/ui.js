@@ -237,6 +237,7 @@ function itemSub(it) {
   return `<span>${q}${fg(it.g)} g</span>
     <span class="mc m-carb"><i></i>C ${fg(it.v[1] * r)}</span><span class="mc m-pro"><i></i>Đ ${fg(it.v[2] * r)}</span><span class="mc m-fat"><i></i>B ${fg(it.v[3] * r)}</span>`;
 }
+const MEAL_IC = { s: 'i-sunrise', t: 'i-sun', c: 'i-moon', p: 'i-cup' };
 function mealsHTML(info, k) {
   return `<div class="meals">${MEALS.map((m) => {
     const items = info.d.items.filter((it) => it.m === m.k);
@@ -248,9 +249,10 @@ function mealsHTML(info, k) {
       : `<div class="empty-meal"><span>Chưa có món nào.</span>${m.k !== 's' && hasPrevMeal(k, m.k) ? `<button class="linkbtn" data-action="copy-meal" data-meal="${m.k}">Chép từ hôm trước</button>` : ''}</div>`;
     return `<article class="meal" data-meal="${m.k}">
       <header class="meal-head">
+        <span class="meal-ic" aria-hidden="true">${ic(MEAL_IC[m.k])}</span>
         <div class="meal-title"><h3>${m.name}</h3><span class="num">${items.length ? `${items.length} món · C ${fg(t.c)} · Đ ${fg(t.p)} · B ${fg(t.f)} g` : 'Trống'}</span></div>
         <div class="meal-kcal num">${fk(t.k)}<small>kcal</small></div>
-        <button class="add-btn" data-action="add" data-meal="${m.k}" aria-label="Thêm món vào ${m.name.toLowerCase()}">${ic('i-plus', 'sm')}Thêm</button>
+        <button class="add-btn" data-action="add" data-meal="${m.k}" aria-label="Thêm món vào ${m.name.toLowerCase()}">${ic('i-plus', 'sm')}<span class="lbl">Thêm</span></button>
       </header>${list}</article>`;
   }).join('')}</div>`;
 }
@@ -276,7 +278,7 @@ function tableHTML(info) {
   rows += `<tr class="tot"><td>Tổng đã ăn</td><td></td><td>${fk(tot.k)}</td><td>${fg(tot.c)}</td><td>${fg(tot.p)}</td><td>${fg(tot.f)}</td><td>${fg(tot.x)}</td></tr>`;
   rows += `<tr class="tgt"><td>Mục tiêu${info.burned && S.settings.burnBack ? ' (+ vận động)' : ''}</td><td></td><td>${fk(info.allow)}</td><td>${fg(T.c)}</td><td>${fg(T.p)}</td><td>${fg(T.f)}</td><td>${fg(T.x)}</td></tr>`;
   const sg = (n) => (n > 0 ? '+' : n < 0 ? '−' : '') + (Math.abs(n) < 10 ? NF1 : NF0).format(Math.abs(n));
-  rows += `<tr><td><b>Chênh lệch</b></td><td></td>${tdSt('k', tot.k, info.allow)}${sg(Math.round(tot.k - info.allow))}</td>${tdSt('c', tot.c, T.c)}${sg(tot.c - T.c)}</td>${tdSt('p', tot.p, T.p)}${sg(tot.p - T.p)}</td>${tdSt('f', tot.f, T.f)}${sg(tot.f - T.f)}</td>${tdSt('x', tot.x, T.x)}${sg(tot.x - T.x)}</td></tr>`;
+  rows += `<tr class="dif"><td><b>Chênh lệch</b></td><td></td>${tdSt('k', tot.k, info.allow)}${sg(Math.round(tot.k - info.allow))}</td>${tdSt('c', tot.c, T.c)}${sg(tot.c - T.c)}</td>${tdSt('p', tot.p, T.p)}${sg(tot.p - T.p)}</td>${tdSt('f', tot.f, T.f)}${sg(tot.f - T.f)}</td>${tdSt('x', tot.x, T.x)}${sg(tot.x - T.x)}</td></tr>`;
   return `<div class="table-wrap"><table class="daytable"><thead><tr><th>Món</th><th>Gam</th><th>kcal</th><th>Carb</th><th>Đạm</th><th>Béo</th><th>Xơ</th></tr></thead><tbody>${rows}</tbody></table></div>
     <button class="btn block" data-action="add" data-meal="${mealByClock()}">${ic('i-plus')}Thêm món</button>`;
 }
