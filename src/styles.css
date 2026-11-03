@@ -588,3 +588,19 @@ details.how .formula { margin-top: 8px; }
 .chart .b-sur { fill: var(--peach); }
 .act-chip { display: inline-flex; align-items: baseline; gap: 6px; }
 .act-chip em { font-style: normal; font-size: 11px; font-weight: 500; color: var(--ink-3); }
+
+/* ---------- Chỉnh theo bao bì ---------- */
+.label-btn { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; border: 1.5px dashed var(--line); background: var(--surface); border-radius: 14px; padding: 9px 12px; font-size: 13px; color: var(--ink-2); }
+.label-btn .icon { color: var(--brand); stroke: var(--brand); }
+.label-btn b { color: var(--ink); }
+.label-btn.on { border-style: solid; border-color: var(--ok); background: var(--ok-soft); color: var(--ok-ink); }
+.label-btn.on .icon { stroke: var(--ok-ink); }
+.badge-label { display: inline-block; vertical-align: 1px; margin-left: 4px; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--ok-soft); color: var(--ok-ink); white-space: nowrap; }
+.lb-compare { border-radius: 16px; background: var(--surface-2); padding: 6px 12px; }
+.lb-table th { font-size: 12px; font-weight: 700; color: var(--ink-2); text-align: right; padding: 6px 2px; }
+.lb-table th:first-child { text-align: left; }
+.lb-table td { text-align: right; font-weight: 500; }
+.lb-table td:first-child { text-align: left; }
+.lb-table td:last-child { font-weight: 700; width: 56px; }
+.lb-table .up { color: var(--high-ink); }
+.lb-table .down { color: var(--sky); }

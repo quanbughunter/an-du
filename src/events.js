@@ -241,7 +241,7 @@ document.addEventListener('click', (ev) => {
       const u = unitsOf(f)[st.u];
       if (st.edit) {
         const d = getDay(st.date, true), it = d.items.find((x) => x.i === st.edit);
-        if (it) { it.g = Math.round(st.g * 10) / 10; it.m = st.meal; if (u && u.g !== 1) { it.u = u.label; it.q = Math.round(st.g / u.g * 100) / 100; } else { delete it.u; delete it.q; } }
+        if (it) { it.g = Math.round(st.g * 10) / 10; it.m = st.meal; if (FOODS.has(f.id)) { it.v = [f.k, f.c, f.p, f.f, f.x]; it.n = f.name; } if (u && u.g !== 1) { it.u = u.label; it.q = Math.round(st.g / u.g * 100) / 100; } else { delete it.u; delete it.q; } }
         persistDay(st.date); closeSheet(); renderToday(); toast('Đã lưu thay đổi');
       } else {
         const back = st.back;
@@ -334,6 +334,66 @@ document.addEventListener('click', (ev) => {
     }
     case 'del-act': { const d = getDay(UI.date, true); d.acts = d.acts.filter((x) => x.i !== st.edit); persistDay(UI.date); closeSheet(); renderToday(); toast('Đã xoá vận động'); break; }
     case 'new-custom': openSheet({ type: 'custom', c: { name: UI.foodQ || '', k: '', c: '', p: '', f: '', x: '', pl: '', pg: '' } }); break;
+    case 'edit-label': {
+      const f = FOODS.get(el.dataset.fid); if (!f) break;
+      openSheet({ type: 'label', fid: f.id, ret: st && st.type === 'food' ? st : null, d: labelDraft(f), past: true });
+      break;
+    }
+    case 'label-back': if (st.ret) openSheet(st.ret); else closeSheet(); break;
+    case 'lb-basis': {
+      const d = st.d, v = el.dataset.v;
+      if (d.basis !== v) {
+        // đổi cách nhập: quy số đang có sang cách mới để không mất số đã gõ
+        const sg = parseNum(d.sg);
+        if (sg > 0) {
+          const ratio = v === 'serving' ? sg / 100 : 100 / sg;
+          ['k', 'c', 'p', 'f', 'x'].forEach((k) => { const n = parseNum(d[k]); if (!isNaN(n)) d[k] = Math.round(n * ratio * 10) / 10; });
+        }
+        d.basis = v;
+      }
+      renderSheet();
+      break;
+    }
+    case 'label-save':
+    case 'label-reset': {
+      const f = FOODS.get(st.fid), base = f.base || f;
+      let per, name, portions;
+      if (a === 'label-save') {
+        per = labelPer100(st.d);
+        if (!per) { toast('Nhập khối lượng 1 khẩu phần trên bao bì'); break; }
+        if (!(per.k > 0 || per.c > 0 || per.p > 0 || per.f > 0)) { toast('Nhập ít nhất năng lượng hoặc carb, đạm, béo'); break; }
+        name = String(st.d.name || '').trim() || base.name;
+        const pg = parseNum(st.d.pg), pl = String(st.d.pl || '').trim() || 'phần';
+        portions = pg > 0 ? [{ label: pl, g: pg }, ...base.portions.filter((x) => x.label !== pl)] : base.portions;
+        S.over[st.fid] = { name, k: per.k, c: per.c, p: per.p, f: per.f, x: per.x, portions };
+      } else {
+        delete S.over[st.fid];
+        per = { k: base.k, c: base.c, p: base.p, f: base.f, x: base.x }; name = base.name;
+      }
+      const ret = st.ret;
+      let keepUnit = null;
+      if (ret) { const ou = unitsOf(f)[ret.u] || { label: 'gam', g: 1 }; keepUnit = { label: ou.label, qty: ret.g / ou.g }; }
+      rebuildFoods();
+      if (ret && keepUnit) {
+        const nu = unitsOf(FOODS.get(st.fid)), i = nu.findIndex((x) => x.label === keepUnit.label);
+        ret.u = i >= 0 ? i : nu.length - 1;
+        if (i >= 0 && nu[i].g !== 1) ret.g = keepUnit.qty * nu[i].g;
+      }
+      let n = 0;
+      if (st.past && $('#lb-past')) {
+        const now = Date.now();
+        Object.keys(S.days).forEach((k) => {
+          let hit = false;
+          S.days[k].items.forEach((it) => { if (it.f === st.fid) { it.v = [per.k, per.c, per.p, per.f, per.x]; it.n = name; n++; hit = true; } });
+          if (hit) { S.meta[monthKey(k)] = now; Cloud.mark(monthKey(k)); }
+        });
+      }
+      touch(null);
+      if (ret) openSheet(ret); else closeSheet();
+      render();
+      toast(a === 'label-save' ? `Đã lưu “${name}” theo bao bì${n ? ` · cập nhật ${n} lần đã ghi` : ''}` : `Đã dùng lại số gốc${n ? ` · cập nhật ${n} lần đã ghi` : ''}`);
+      break;
+    }
     case 'edit-custom': {
       const c = S.custom.find((x) => x.id === el.dataset.fid); if (!c) break;
       const p0 = (c.portions || [])[0] || {};
@@ -413,6 +473,7 @@ document.addEventListener('input', (ev) => {
   if (t.id === 'quick-text') { st.text = t.value; clearTimeout(qTimer); qTimer = setTimeout(updateQuick, 200); return; }
   if (t.dataset.man) { st.man[t.dataset.man] = t.value; return; }
   if (t.dataset.cu) { st.c[t.dataset.cu] = t.value; return; }
+  if (t.dataset.lb) { st.d[t.dataset.lb] = t.value; updateLabelLive(); return; }
   if (t.id === 'qty') {
     const n = parseNum(t.value); if (!(n > 0)) return;
     const u = unitsOf(sheetFood(st))[st.u]; st.g = n * u.g; updateFoodPreview(); return;
@@ -436,6 +497,7 @@ document.addEventListener('change', (ev) => {
   if (t.id === 'date-input' && t.value) setDate(t.value);
   if (t.id === 'burnback') { S.settings.burnBack = t.checked; touch(null); }
   if (t.id === 'man-save' && UI.sheet && UI.sheet.man) UI.sheet.man.save = t.checked;
+  if (t.id === 'lb-past' && UI.sheet) UI.sheet.past = t.checked;
   if (t.dataset && t.dataset.grams) {
     const n = parseNum(t.value);
     const it = getDay(UI.date).items.find((x) => x.i === t.dataset.grams);

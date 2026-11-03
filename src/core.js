@@ -73,12 +73,23 @@ const BASE = FOOD_ROWS.map((r) => makeFood({
   id: 'f-' + slug(r[0]), name: r[0], cat: r[1], k: r[2], c: r[3], p: r[4], f: r[5], x: r[6], portions: parsePortions(r[7]), alias: r[8]
 }));
 let FOODS = new Map();
+// Món gốc có thể được chỉnh theo bao bì: S.over[id] = { name, k, c, p, f, x, portions }
 function rebuildFoods() {
   FOODS = new Map();
-  BASE.forEach((f) => FOODS.set(f.id, f));
+  BASE.forEach((f) => {
+    const o = (S.over || {})[f.id];
+    if (!o) { FOODS.set(f.id, f); return; }
+    const g = makeFood(Object.assign({}, f, {
+      name: o.name || f.name, k: +o.k || 0, c: +o.c || 0, p: +o.p || 0, f: +o.f || 0, x: +o.x || 0,
+      portions: o.portions && o.portions.length ? o.portions : f.portions,
+      alias: [f.alias, f.name].filter(Boolean).join(', ')
+    }));
+    g.edited = true; g.base = f;
+    FOODS.set(f.id, g);
+  });
   (S.custom || []).forEach((c) => FOODS.set(c.id, makeFood(Object.assign({ cat: 'my' }, c))));
 }
-const foodByName = (name) => BASE.find((f) => f.name === name);
+const foodByName = (name) => { const b = BASE.find((f) => f.name === name); return b ? (FOODS.get(b.id) || b) : undefined; };
 
 function searchFoods(q, limit = 60) {
   const qn = norm(q);
@@ -340,7 +351,7 @@ function blankState() {
     v: 1, demo: false,
     profile: { set: false, goalSet: false, startW: null, name: '', sex: 'f', age: 25, height: 160, weight: 55, act: 1.375, goal: 'keep', rate: 0.5, style: 'balanced', custom: { c: 50, p: 20, f: 30 }, tw: '' },
     settings: { theme: 'auto', burnBack: true, view: 'list' },
-    custom: [], fav: [], recent: [], weights: [], days: {},
+    custom: [], fav: [], recent: [], weights: [], days: {}, over: {},
     meta: {}
   };
 }
@@ -439,6 +450,7 @@ function normalizeState(st) {
   o.settings = Object.assign(blankState().settings, o.settings || {});
   ['custom', 'fav', 'recent', 'weights'].forEach((k) => { if (!Array.isArray(o[k])) o[k] = []; });
   if (!o.days || typeof o.days !== 'object') o.days = {};
+  if (!o.over || typeof o.over !== 'object' || Array.isArray(o.over)) o.over = {};
   Object.values(o.days).forEach((d) => { d.items = Array.isArray(d.items) ? d.items : []; d.acts = Array.isArray(d.acts) ? d.acts : []; });
   o.meta = o.meta || {};
   return o;

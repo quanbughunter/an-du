@@ -472,13 +472,14 @@ function foodRow(f, opts = {}) {
   const p = (f.portions || [])[0];
   const fav = (S.fav || []).includes(f.id);
   return `<li class="frow"><button class="frow-btn" data-action="${opts.action || 'open-food'}" data-fid="${f.id}">${catIcon(f)}
-    <div class="frow-main"><div class="frow-name">${esc(f.name)}</div><div class="frow-sub num">${p ? `${esc(p.label)} ${fg(p.g)} g · ` : ''}${per100(f)}</div></div>
+    <div class="frow-main"><div class="frow-name">${esc(f.name)}${f.edited ? ' <span class="badge-label">Theo bao bì</span>' : ''}</div><div class="frow-sub num">${p ? `${esc(p.label)} ${fg(p.g)} g · ` : ''}${per100(f)}</div></div>
     <div class="frow-kcal num">${fk(f.k)}<small>kcal/100g</small></div></button>
     ${opts.star === false ? '' : `<button class="star" data-action="fav" data-fid="${f.id}" aria-pressed="${fav}" aria-label="${fav ? 'Bỏ yêu thích' : 'Yêu thích'}">${ic('i-star', 'sm')}</button>`}</li>`;
 }
 function foodsFor(cat) {
   if (cat === 'fav') return (S.fav || []).map((id) => FOODS.get(id)).filter(Boolean);
   if (cat === 'recent') return (S.recent || []).map((id) => FOODS.get(id)).filter(Boolean);
+  if (cat === 'edited') return Array.from(FOODS.values()).filter((f) => f.edited);
   const all = Array.from(FOODS.values());
   return cat === 'all' ? all : all.filter((f) => f.cat === cat);
 }
@@ -514,7 +515,7 @@ function renderFoods() {
       <div class="card" style="padding:6px 12px"><ul class="flist" id="food-list"></ul></div>`;
     $('#food-q').value = UI.foodQ;
   }
-  $('#food-cats').innerHTML = catChips(UI.foodCat, [['fav', 'Yêu thích'], ['recent', 'Gần đây']]);
+  $('#food-cats').innerHTML = catChips(UI.foodCat, [['fav', 'Yêu thích'], ['recent', 'Gần đây'], ...(Object.keys(S.over || {}).length ? [['edited', 'Theo bao bì']] : [])]);
   $('#food-list').innerHTML = foodListHTML(UI.foodQ, UI.foodCat, {});
 }
 
@@ -811,6 +812,7 @@ function sheetBack() {
   const st = UI.sheet; if (!st) return false;
   if (st.type === 'goal' && st.flow === 'setup') { openSheet({ type: 'me', d: st.d, flow: 'setup' }); return true; }
   if (st.back === 'add' && UI.addState) { UI.addState.meal = st.meal; openSheet(UI.addState); return true; }
+  if (st.type === 'label' && st.ret) { openSheet(st.ret); return true; }
   closeSheet(); return true;
 }
 
@@ -830,13 +832,14 @@ function closeSheet() {
 function renderSheet() {
   const st = UI.sheet; if (!st) return;
   const body = $('#sheet-body');
-  const h = { add: addSheetHTML, food: foodSheetHTML, act: actSheetHTML, custom: customSheetHTML, backup: backupSheetHTML, me: meSheetHTML, goal: goalSheetHTML }[st.type];
+  const h = { add: addSheetHTML, food: foodSheetHTML, act: actSheetHTML, custom: customSheetHTML, backup: backupSheetHTML, me: meSheetHTML, goal: goalSheetHTML, label: labelSheetHTML }[st.type];
   const keep = body.dataset.type === st.type ? body.scrollTop : 0;
   body.innerHTML = h(st);
   body.dataset.type = st.type;
   body.scrollTop = keep;
   if (st.type === 'me') updateMeLive();
   if (st.type === 'goal') updateGoalLive();
+  if (st.type === 'label') updateLabelLive();
   if (st.type === 'add' && st.mode === 'quick') updateQuick();
   if (st.type === 'food') updateFoodPreview();
   if (st.type === 'act') updateActPreview();
@@ -908,6 +911,7 @@ function foodSheetHTML(st) {
   const star = FOODS.has(f.id) ? `<button class="star" data-action="fav" data-fid="${f.id}" aria-pressed="${fav}" aria-label="Yêu thích">${ic('i-star')}</button>` : '';
   return `${topBar(esc(f.name), st.back ? 'sheet-back' : '', star)}
     <p class="muted small">${catOf(f).name} · ${fk(f.k)} kcal / 100 g · ${per100(f)}</p>
+    ${FOODS.has(f.id) && f.cat !== 'my' ? `<button class="label-btn${f.edited ? ' on' : ''}" data-action="edit-label" data-fid="${f.id}">${ic('i-edit', 'sm')}<span>${f.edited ? `<b>Đang dùng số liệu theo bao bì</b> · Sửa` : 'Số liệu khác bao bì của bạn? <b>Chỉnh theo bao bì</b>'}</span></button>` : ''}
     <div class="field"><label for="qty">Số lượng (${esc(u.label)})</label>
       <div class="stepper"><button class="iconbtn" data-action="qty" data-d="-1" aria-label="Giảm">${ic('i-minus')}</button>
         <input class="input num" id="qty" inputmode="decimal" value="${fq(Math.round(qty * 100) / 100)}" data-autofocus>
@@ -923,6 +927,61 @@ function updateFoodPreview() {
   const f = sheetFood(st), r = st.g / 100;
   el.innerHTML = `<div class="preview-top"><b class="num">${fk(f.k * r)} <span style="font-size:15px">kcal</span></b><span class="num">${fg(st.g)} g</span></div>
     <div class="mini-macros">${MC.map(([k, n, cls]) => `<div class="m-${cls}"><b class="num">${fg(f[k] * r)}</b><span>${k === 'x' ? 'Xơ' : n} (g)</span></div>`).join('')}</div>`;
+}
+
+// -- Chỉnh món có sẵn theo bao bì
+function entriesOf(fid) {
+  let n = 0;
+  Object.values(S.days).forEach((d) => d.items.forEach((it) => { if (it.f === fid) n++; }));
+  return n;
+}
+function labelDraft(f) {
+  const p = (f.portions || [])[0] || {};
+  return { name: f.name, basis: '100', sg: p.g || '', k: f.k, c: f.c, p: f.p, f: f.f, x: f.x, pl: p.label || '', pg: p.g || '' };
+}
+// Quy số liệu nháp về mỗi 100 g/ml
+function labelPer100(d) {
+  const num = (v) => { const n = parseNum(v); return isNaN(n) ? null : n; };
+  const sg = num(d.sg);
+  const scale = d.basis === 'serving' ? (sg > 0 ? 100 / sg : null) : 1;
+  if (scale == null) return null;
+  const v = { c: num(d.c) || 0, p: num(d.p) || 0, f: num(d.f) || 0, x: num(d.x) || 0 };
+  let k = num(d.k);
+  if (k == null) k = v.c * 4 + v.p * 4 + v.f * 9;
+  const r1 = (n) => Math.round(n * scale * 10) / 10;
+  return { k: r1(k), c: r1(v.c), p: r1(v.p), f: r1(v.f), x: r1(v.x) };
+}
+function labelSheetHTML(st) {
+  const f = FOODS.get(st.fid), base = f.base || f, d = st.d;
+  const cnt = entriesOf(st.fid);
+  const fld = (k, n, u) => `<div class="field"><label for="lb-${k}">${n}</label><div class="input-unit"><input class="input num" id="lb-${k}" data-lb="${k}" inputmode="decimal" value="${d[k] === '' || d[k] == null ? '' : fq(d[k])}" placeholder="${k === 'k' ? 'tự tính' : '0'}"><em>${u}</em></div></div>`;
+  return `${topBar('Chỉnh theo bao bì', st.ret ? 'label-back' : '')}
+    <p class="small muted">Nhập đúng bảng thành phần dinh dưỡng in trên bao bì. Từ giờ chọn món này, app dùng số liệu của bạn thay cho số gốc. Danh mục vẫn chỉ có một món, không sinh thêm món mới.</p>
+    <div class="field"><label for="lb-name">Tên hiển thị</label><input class="input" id="lb-name" data-lb="name" value="${esc(d.name)}" placeholder="${esc(base.name)}" autocomplete="off">
+      <p class="hint">Có thể thêm hãng để dễ nhớ, ví dụ “${esc(base.name)} Vinamilk”. Tìm bằng tên gốc vẫn ra.</p></div>
+    <div class="field"><span>Bảng trên bao bì tính theo</span><div class="seg wide" role="group">
+      <button data-action="lb-basis" data-v="100" aria-pressed="${d.basis === '100'}">100 g / 100 ml</button>
+      <button data-action="lb-basis" data-v="serving" aria-pressed="${d.basis === 'serving'}">1 khẩu phần</button></div></div>
+    ${d.basis === 'serving' ? `<div class="field"><label for="lb-sg">1 khẩu phần trên bao bì là</label><div class="input-unit"><input class="input num" id="lb-sg" data-lb="sg" inputmode="decimal" value="${d.sg === '' ? '' : fq(d.sg)}" placeholder="180"><em>g/ml</em></div></div>` : ''}
+    <div class="grid2">${fld('k', 'Năng lượng', 'kcal')}${fld('c', 'Carbohydrate', 'g')}${fld('p', 'Chất đạm', 'g')}${fld('f', 'Chất béo', 'g')}${fld('x', 'Chất xơ', 'g')}</div>
+    <p class="hint">Bao bì chỉ ghi kJ thì chia cho 4,184 để ra kcal. Để trống năng lượng thì app tự tính: 4 kcal/g carb và đạm, 9 kcal/g béo. Đồ uống: 100 ml tính như 100 g.</p>
+    <div class="field"><span>Khẩu phần bạn hay dùng</span><div class="grid2">
+      <input class="input" id="lb-pl" data-lb="pl" value="${esc(d.pl)}" placeholder="hộp, chai, gói…" aria-label="Tên khẩu phần">
+      <div class="input-unit"><input class="input num" id="lb-pg" data-lb="pg" inputmode="decimal" value="${d.pg === '' ? '' : fq(d.pg)}" placeholder="180" aria-label="Khối lượng khẩu phần"><em>g/ml</em></div></div></div>
+    <div class="lb-compare" id="lb-live"></div>
+    ${cnt ? `<label class="switch"><span><b>Cập nhật cả ${cnt} lần đã ghi món này</b><br><span class="hint">Tắt nếu muốn giữ nguyên số liệu của những ngày trước.</span></span><input type="checkbox" id="lb-past" ${st.past ? 'checked' : ''}></label>` : ''}
+    <div class="sheet-foot">${f.edited ? `<div class="row"><button class="btn" data-action="label-reset">Dùng lại số gốc</button><button class="btn primary" style="flex:1" data-action="label-save">${ic('i-check')}Lưu theo bao bì</button></div>` : `<button class="btn primary block" data-action="label-save">${ic('i-check')}Lưu theo bao bì</button>`}</div>`;
+}
+function updateLabelLive() {
+  const st = UI.sheet, el = $('#lb-live'); if (!el) return;
+  const f = FOODS.get(st.fid), base = f.base || f;
+  const v = labelPer100(st.d);
+  if (!v) { el.innerHTML = '<p class="hint">Nhập khối lượng 1 khẩu phần để app quy ra 100 g.</p>'; return; }
+  const rows = [['k', 'Năng lượng', 'kcal'], ['c', 'Carb', 'g'], ['p', 'Đạm', 'g'], ['f', 'Béo', 'g'], ['x', 'Xơ', 'g']];
+  const diff = (a, b) => { const dd = Math.round((a - b) * 10) / 10; return dd === 0 ? '<span class="muted">=</span>' : `<span class="${dd > 0 ? 'up' : 'down'}">${dd > 0 ? '+' : '−'}${(Math.abs(dd) < 10 ? NF1 : NF0).format(Math.abs(dd))}</span>`; };
+  el.innerHTML = `<table class="nutable lb-table"><thead><tr><th>Mỗi 100 g/ml</th><th>Số gốc</th><th>Bao bì</th><th></th></tr></thead><tbody>
+    ${rows.map(([k, n, u]) => `<tr><td>${n}</td><td class="num">${k === 'k' ? fk(base[k]) : fg(base[k])}</td><td class="num"><b>${k === 'k' ? fk(v[k]) : fg(v[k])}</b> ${u}</td><td class="num">${diff(v[k], base[k])}</td></tr>`).join('')}
+  </tbody></table>`;
 }
 
 // -- Món tự tạo
