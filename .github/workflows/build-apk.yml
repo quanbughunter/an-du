@@ -1,0 +1,90 @@
+name: Build APK
+
+# Bấm "Run workflow" ở tab Actions: GitHub build APK, ký bằng khoá cũ (lấy từ Secrets)
+# rồi tạo Release có file AnDu-<phiên bản>.apk và AnDu.apk để tải.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Phiên bản, ví dụ 1.0.4 (để trống = lấy VERSION trong build.py)'
+        required: false
+        default: ''
+      notes:
+        description: 'Ghi chú cho bản phát hành (không bắt buộc)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-apk
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    # Ghim Ubuntu 24.04: các gói aapt, dalvik-exchange, android-sdk-platform-23 đã kiểm tra chạy được ở bản này
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Kiểm tra khoá ký
+        env:
+          KS_B64: ${{ secrets.ANDU_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.ANDU_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KS_B64" ] || [ -z "$KS_PASS" ]; then
+            echo "::error::Thiếu secret ANDU_KEYSTORE_B64 hoặc ANDU_KEYSTORE_PASSWORD (Settings → Secrets and variables → Actions). Không có khoá cũ thì APK không cài đè được lên app đã cài."
+            exit 1
+          fi
+          mkdir -p android/keystore
+          echo "$KS_B64" | base64 -d > android/keystore/an-du-release.jks
+          printf '%s' "$KS_PASS" > android/keystore/PASSWORD.txt
+
+      - name: Cài công cụ Android
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq aapt apksigner zipalign android-sdk-platform-23 dalvik-exchange
+
+      - name: Xác định phiên bản
+        id: ver
+        run: |
+          V="${{ github.event.inputs.version }}"
+          if [ -z "$V" ]; then V=$(python3 -c "import re;print(re.search(r\"VERSION = '([^']+)'\", open('build.py').read()).group(1))"); fi
+          if ! echo "$V" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then echo "::error::Phiên bản phải dạng 1.0.4, nhận được: $V"; exit 1; fi
+          IFS=. read -r MA MI PA <<< "$V"
+          CODE=$((MA * 10000 + MI * 100 + PA))
+          echo "name=$V" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "Phiên bản $V (versionCode $CODE)"
+
+      - name: Build web
+        run: |
+          sed -i "s/^VERSION = '[^']*'/VERSION = '${{ steps.ver.outputs.name }}'/" build.py
+          python3 build.py
+
+      - name: Build và ký APK
+        run: |
+          chmod +x android/build_apk.sh
+          VERSION_NAME=${{ steps.ver.outputs.name }} VERSION_CODE=${{ steps.ver.outputs.code }} ./android/build_apk.sh
+          cp android/out/AnDu-${{ steps.ver.outputs.name }}.apk android/out/AnDu.apk
+
+      - name: Tạo Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.ver.outputs.name }}
+          NOTES: ${{ github.event.inputs.notes }}
+        run: |
+          BODY="${NOTES:-Bản build tự động từ commit ${GITHUB_SHA::7}.}"
+          BODY="$BODY
+
+          Cài: tải AnDu-$V.apk ở mục Assets, mở file và bấm Cài đặt. Bản này cài đè lên bản cũ, dữ liệu vẫn giữ.
+          Link luôn tải bản mới nhất: https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/AnDu.apk"
+          if gh release view "v$V" >/dev/null 2>&1; then
+            gh release upload "v$V" "android/out/AnDu-$V.apk" android/out/AnDu.apk --clobber
+          else
+            gh release create "v$V" "android/out/AnDu-$V.apk" android/out/AnDu.apk \
+              --target "$GITHUB_SHA" --title "Ăn Đủ $V" --notes "$BODY" --latest
+          fi
+          echo "### Đã tạo bản Ăn Đủ $V" >> "$GITHUB_STEP_SUMMARY"
+          echo "Tải: https://github.com/${GITHUB_REPOSITORY}/releases/tag/v$V" >> "$GITHUB_STEP_SUMMARY"

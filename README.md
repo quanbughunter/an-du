@@ -32,6 +32,14 @@ python3 build.py                 # tạo dist/www, dist/apk-www, dist/artifact.h
 cp -r dist/www/index.html dist/www/sw.js dist/www/manifest.webmanifest .   # cập nhật trang ở thư mục gốc
 ```
 
+## Build APK trên GitHub (khuyên dùng)
+
+Workflow `.github/workflows/build-apk.yml`: vào tab **Actions → Build APK → Run workflow**, nhập phiên bản (ví dụ `1.0.4`) rồi bấm Run. GitHub build web, build và ký APK, rồi tạo Release `v1.0.4` có hai file `AnDu-1.0.4.apk` và `AnDu.apk`.
+
+- Cần hai secret (Settings → Secrets and variables → Actions): `ANDU_KEYSTORE_B64` (khoá ký dạng base64) và `ANDU_KEYSTORE_PASSWORD`. Thiếu secret thì workflow dừng, không tự tạo khoá mới (khoá mới sẽ làm APK không cài đè được lên app đã cài).
+- versionCode tự tính = MAJOR×10000 + MINOR×100 + PATCH (1.0.4 → 10004).
+- Link luôn tải bản mới nhất: https://github.com/quanbughunter/an-du/releases/latest/download/AnDu.apk
+
 ## Build APK (Linux, không cần Android Studio)
 
 ```bash
