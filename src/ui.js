@@ -416,17 +416,33 @@ function balanceChart(keys, width) {
   return { svg: s + '</svg>', tot, days: vals.filter((v) => v != null).length };
 }
 
+function dateLabel(k) {
+  const r = relDay(k), d = dateOf(k);
+  const y = d.getFullYear() !== new Date().getFullYear() ? `, ${d.getFullYear()}` : '';
+  if (r === 'Hôm nay' || r === 'Hôm qua' || r === 'Ngày mai') return [r, longDate(k) + y];
+  return [WD[d.getDay()], `${d.getDate()} tháng ${d.getMonth() + 1}${y}`];
+}
+// Nút «Hôm nay»: tờ lịch nhỏ in số ngày hiện tại; đổi sang màu nhấn khi đang xem ngày khác
+function todayBtn(away, action = 'go-today') {
+  const t = todayKey();
+  return `<button class="today-btn${away ? ' is-away' : ''}" data-action="${action}" aria-label="Về hôm nay, ${longDate(t)}"><span class="tb-ic" aria-hidden="true"><b>${dateOf(t).getDate()}</b></span>Hôm nay</button>`;
+}
+
 function renderToday() {
   const k = UI.date, t = todayKey();
   const info = dayInfo(k);
   const anim = UI.animKey !== k;
   UI.animKey = k;
   const d0 = dateOf(k), dow = (d0.getDay() + 6) % 7, mon = addDays(k, -dow);
+  // Đổi sang tuần khác thì dải tuần trượt vào theo hướng đi
+  const slide = UI.weekMon && UI.weekMon !== mon ? (mon > UI.weekMon ? ' slide-next' : ' slide-prev') : '';
+  UI.weekMon = mon;
   const week = Array.from({ length: 7 }, (_, i) => addDays(mon, i)).map((dk) => {
-    const di = dayInfo(dk), dd = dateOf(dk);
-    return `<button class="wday ${dk === t ? 'is-today' : ''}" data-action="pick-date" data-date="${dk}" aria-pressed="${dk === k}" aria-label="${longDate(dk)}: ${ST_NAME[di.st]}">
+    const di = dayInfo(dk), dd = dateOf(dk), isT = dk === t;
+    return `<button class="wday${isT ? ' is-today' : ''}" data-action="pick-date" data-date="${dk}" aria-pressed="${dk === k}"${isT ? ' aria-current="date"' : ''} aria-label="${longDate(dk)}${isT ? ' (hôm nay)' : ''}: ${ST_NAME[di.st]}">
       ${WDS[dd.getDay()]}${miniPlate(di)}<span class="d">${dd.getDate()}</span></button>`;
   }).join('');
+  const [dTitle, dSub] = dateLabel(k);
   const name = (S.profile.name || '').trim();
   const leftTxt = !info.has ? 'Chưa ghi món nào'
     : info.st === 'high' ? `Dư ${fk(info.tot.k - info.allow)} kcal`
@@ -437,14 +453,14 @@ function renderToday() {
     : !S.profile.set || !S.profile.goalSet ? `<div class="demo"><p><b>${S.profile.set ? 'Đặt mục tiêu' : 'Nhập hồ sơ'}</b> để app tính lượng calo, carb, đạm, béo phù hợp riêng cho bạn.</p><button class="btn primary sm" data-action="${S.profile.set ? 'edit-goal' : 'setup'}">${S.profile.set ? 'Đặt mục tiêu' : 'Bắt đầu'}</button></div>` : '';
   $('#v-today').innerHTML = `
     <div class="topbar"><div class="wordmark"><span class="wordmark-dot" aria-hidden="true"></span>Ăn Đủ</div>
+      ${todayBtn(k !== t)}
       <button class="avatar" data-nav="profile" aria-label="Hồ sơ">${name ? esc(name[0].toUpperCase()) : ic('i-user', 'sm')}</button></div>
     <div class="datebar">
       <button class="iconbtn" data-action="shift-date" data-n="-1" aria-label="Ngày trước">${ic('i-left')}</button>
-      <button class="date-label" data-action="open-cal"><strong>${relDay(k) === 'Hôm nay' || relDay(k) === 'Hôm qua' || relDay(k) === 'Ngày mai' ? relDay(k) : WD[d0.getDay()]}</strong><span>${longDate(k)}</span></button>
-      <input type="date" class="date-input" id="date-input" value="${k}" aria-label="Chọn ngày" tabindex="-1">
+      <button class="date-label" data-action="open-cal" aria-label="Mở lịch — đang xem ${longDate(k)}"><strong>${dTitle}${ic('i-cal', 'sm')}</strong><span>${dSub}</span></button>
       <button class="iconbtn" data-action="shift-date" data-n="1" aria-label="Ngày sau">${ic('i-right')}</button>
     </div>
-    <div class="week" role="group" aria-label="Tuần này">${week}</div>
+    <div class="week${slide}" role="group" aria-label="Tuần đang xem">${week}</div>
     ${banner}
     <div class="today-grid">
       <div class="today-side">
@@ -834,7 +850,7 @@ function closeSheet() {
 function renderSheet() {
   const st = UI.sheet; if (!st) return;
   const body = $('#sheet-body');
-  const h = { add: addSheetHTML, food: foodSheetHTML, act: actSheetHTML, custom: customSheetHTML, backup: backupSheetHTML, me: meSheetHTML, goal: goalSheetHTML, label: labelSheetHTML }[st.type];
+  const h = { add: addSheetHTML, food: foodSheetHTML, act: actSheetHTML, custom: customSheetHTML, backup: backupSheetHTML, me: meSheetHTML, goal: goalSheetHTML, label: labelSheetHTML, cal: calSheetHTML }[st.type];
   const keep = body.dataset.type === st.type ? body.scrollTop : 0;
   body.innerHTML = h(st);
   body.dataset.type = st.type;
@@ -848,6 +864,38 @@ function renderSheet() {
 }
 const topBar = (title, back, extra = '') => `<div class="sheet-top">${back ? `<button class="iconbtn ghost" data-action="${back}" aria-label="Quay lại">${ic('i-left')}</button>` : ''}<h2 id="sheet-title">${title}</h2>${extra}<button class="iconbtn ghost" data-action="close-sheet" aria-label="Đóng">${ic('i-x')}</button></div>`;
 const mealSeg = (cur, action = 'sheet-meal') => `<div class="seg wide" role="group" aria-label="Chọn bữa">${MEALS.map((m) => `<button data-action="${action}" data-meal="${m.k}" aria-pressed="${cur === m.k}">${m.name.replace('Bữa ', '').replace(/^./, (c) => c.toUpperCase())}</button>`).join('')}</div>`;
+
+// -- Lịch tháng: mỗi ô phớt màu theo trạng thái ngày, hôm nay là viên tròn màu nhấn
+const WDH = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+function calSheetHTML(st) {
+  const t = todayKey(), [y, m] = st.m.split('-').map(Number);
+  const lead = (new Date(y, m - 1, 1, 12).getDay() + 6) % 7, n = new Date(y, m, 0).getDate();
+  let cells = '', logged = 0, ok = 0, elapsed = 0;
+  for (let i = 0; i < lead; i++) cells += '<span class="cd blank" aria-hidden="true"></span>';
+  for (let d = 1; d <= n; d++) {
+    const dk = `${y}-${pad(m)}-${pad(d)}`, di = dayInfo(dk), isT = dk === t;
+    if (dk <= t) { elapsed++; if (di.has) { logged++; if (di.st === 'ok') ok++; } }
+    cells += `<button class="cd${isT ? ' is-today' : ''}${dk > t ? ' future' : ''}" data-action="cal-pick" data-date="${dk}" data-st="${di.st}" aria-pressed="${dk === UI.date}"${isT ? ' aria-current="date"' : ''} aria-label="${longDate(dk)}${isT ? ' (hôm nay)' : ''}: ${ST_NAME[di.st]}"><span class="n">${d}</span></button>`;
+  }
+  const curM = t.slice(0, 7), away = st.m !== curM || UI.date !== t;
+  const sum = st.m > curM ? 'Tháng này chưa tới.'
+    : !logged ? 'Chưa ghi ngày nào trong tháng này.'
+      : `Đã ghi <b>${logged}/${elapsed}</b> ngày${st.m === curM ? ' tính đến hôm nay' : ''} · <b>${ok}</b> ngày đủ năng lượng.`;
+  const slide = st.dir ? ` slide-${st.dir}` : '';
+  st.dir = '';
+  return `${topBar('Lịch', '', todayBtn(away, 'cal-today'))}
+    <div class="cal-nav">
+      <button class="iconbtn" data-action="cal-shift" data-n="-1" aria-label="Tháng trước">${ic('i-left')}</button>
+      <strong class="cal-month" aria-live="polite">Tháng ${m}, ${y}</strong>
+      <button class="iconbtn" data-action="cal-shift" data-n="1" aria-label="Tháng sau">${ic('i-right')}</button>
+    </div>
+    <div class="cal">
+      <div class="cal-wd" aria-hidden="true">${WDH.map((w) => `<span>${w}</span>`).join('')}</div>
+      <div class="cal-days${slide}">${cells}</div>
+    </div>
+    <div class="cal-legend"><span><i class="lg-today"></i>Hôm nay</span><span><i class="lg-sel"></i>Đang xem</span><span><i data-st="low"></i>Thiếu</span><span><i data-st="ok"></i>Đủ</span><span><i data-st="high"></i>Thừa</span></div>
+    <p class="cal-sum">${sum}</p>`;
+}
 
 // -- Thêm món
 function addSheetHTML(st) {

@@ -164,6 +164,10 @@
   --meal-s: #FFF7DE; --meal-t: #E4FAF1; --meal-c: #F0ECFF; --meal-p: #FFEFE8;
   --ma-s: #F0A92A;   --ma-t: #14B88E;   --ma-c: #8B6CFF;   --ma-p: #FF8460;
   --plate-tint: 13%; --plate-glow: 24%;
+  /* hôm nay: viên tròn màu nhấn (chữ trắng đủ tương phản), ô phớt hồng; vòng của ngày đang xem */
+  --today: #EE3A78; --today-ink: #FFFFFF; --today-text: #D82B66;
+  --today-tint: #FFE5EF; --today-glow: rgba(238, 58, 120, .55);
+  --sel-ring: rgba(31, 34, 51, .10);
 
   --shadow: 0 18px 40px -22px rgba(31, 34, 51, .35);
   --shadow-sm: 0 2px 12px -5px rgba(31, 34, 51, .14);
@@ -183,6 +187,9 @@
     --meal-s: #212536; --meal-t: #212536; --meal-c: #212536; --meal-p: #212536;
     --ma-s: #FFD27A; --ma-t: #6FE6C6; --ma-c: #C2B1FF; --ma-p: #FFB39C;
     --plate-tint: 4%; --plate-glow: 15%;
+    --today: #FF8DB9; --today-ink: #1B0E16; --today-text: #FFA3C7;
+    --today-tint: #3A2035; --today-glow: rgba(255, 141, 185, .5);
+    --sel-ring: rgba(242, 244, 250, .16);
     --shadow: 0 18px 40px -22px rgba(0, 0, 0, .75); --shadow-sm: 0 2px 12px -5px rgba(0, 0, 0, .55);
     color-scheme: dark;
   }
@@ -197,6 +204,9 @@
   --meal-s: #212536; --meal-t: #212536; --meal-c: #212536; --meal-p: #212536;
   --ma-s: #FFD27A; --ma-t: #6FE6C6; --ma-c: #C2B1FF; --ma-p: #FFB39C;
   --plate-tint: 4%; --plate-glow: 15%;
+  --today: #FF8DB9; --today-ink: #1B0E16; --today-text: #FFA3C7;
+  --today-tint: #3A2035; --today-glow: rgba(255, 141, 185, .5);
+  --sel-ring: rgba(242, 244, 250, .16);
   --shadow: 0 18px 40px -22px rgba(0, 0, 0, .75); --shadow-sm: 0 2px 12px -5px rgba(0, 0, 0, .55);
   color-scheme: dark;
 }
@@ -280,21 +290,74 @@ p { margin: 0; }
 .iconbtn:hover { background: var(--surface-2); }
 .iconbtn.ghost { border-color: transparent; background: transparent; }
 .topbar .avatar { margin-left: auto; }
+.topbar .today-btn { margin-left: auto; }
+.topbar .today-btn + .avatar { margin-left: 0; }
+
+/* Nút «Hôm nay» */
+.today-btn { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 14px 0 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); font-weight: 700; font-size: 14px; white-space: nowrap; flex: none; transition: background-color .2s ease, color .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.today-btn:hover { color: var(--ink); }
+.today-btn:active { transform: scale(.97); }
+.today-btn .tb-ic { position: relative; display: grid; place-items: center; width: 26px; height: 26px; padding-top: 6px; border-radius: 8px; overflow: hidden; background: var(--surface-2); color: var(--ink); font-family: var(--font-body); font-size: 12px; line-height: 1; }
+.today-btn .tb-ic::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 6px; background: var(--today); }
+.today-btn .tb-ic b { font-weight: 800; }
+.today-btn.is-away { background: var(--today); border-color: transparent; color: var(--today-ink); box-shadow: 0 8px 20px -10px var(--today-glow); }
+.today-btn.is-away .tb-ic { background: var(--today-ink); color: var(--today); }
+.today-btn.is-away .tb-ic::before { background: currentColor; opacity: .3; }
+.sheet-top .today-btn { height: 38px; }
 .avatar { width: 42px; height: 42px; border-radius: 50%; border: 0; background: var(--pro-soft); color: var(--ink); font-family: var(--font-display); font-weight: 800; font-size: 18px; display: grid; place-items: center; }
 
 .datebar { display: flex; align-items: center; gap: 8px; }
 .datebar .date-label { flex: 1; min-width: 0; text-align: center; border: 0; background: none; padding: 4px; }
-.date-label strong { display: block; font-family: var(--font-display); font-size: 21px; font-weight: 700; line-height: 1.2; }
+.date-label strong { display: flex; align-items: center; justify-content: center; gap: 6px; font-family: var(--font-display); font-size: 21px; font-weight: 700; line-height: 1.2; }
+.date-label strong .icon { width: 17px; height: 17px; color: var(--ink-3); }
 .date-label span { font-size: 12.5px; color: var(--ink-2); }
-.date-input { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
 
 /* ---------- Week strip ---------- */
 .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-.wday { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 8px 0 9px; border-radius: 16px; border: 0; background: none; color: var(--ink-2); font-size: 12px; font-weight: 600; }
-.wday[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+.week.slide-next { animation: wk-next .34s cubic-bezier(.2,.8,.2,1); }
+.week.slide-prev { animation: wk-prev .34s cubic-bezier(.2,.8,.2,1); }
+@keyframes wk-next { from { transform: translateX(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes wk-prev { from { transform: translateX(-14px); opacity: 0; } to { transform: none; opacity: 1; } }
+.wday { position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 8px 0 9px; border-radius: 16px; border: 0; background: none; color: var(--ink-2); font-size: 12px; font-weight: 600; transition: background-color .2s ease, box-shadow .2s ease; }
+.wday[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm), inset 0 0 0 1.5px var(--sel-ring); }
 .wday .mini { width: 34px; height: 34px; }
-.wday .d { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--ink); line-height: 1; }
-.wday.is-today .d { color: var(--brand); }
+.wday .d { display: grid; place-items: center; min-width: 28px; height: 28px; margin: -3px 0 -4px; padding: 0 5px; border-radius: 999px; font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--ink); line-height: 1; }
+/* Hôm nay: số ngày nằm trong viên tròn màu nhấn, cả ô phớt hồng — nhìn là thấy ở cả nền sáng lẫn tối */
+.wday.is-today { color: var(--today-text); font-weight: 800; background: var(--today-tint); }
+.wday.is-today .d { background: var(--today); color: var(--today-ink); box-shadow: 0 5px 14px -5px var(--today-glow); }
+.wday.is-today[aria-pressed="true"] { background: var(--surface); box-shadow: var(--shadow-sm), inset 0 0 0 2px var(--today); }
+.wday.flash .d { animation: today-ping .9s ease-out 2; }
+@keyframes today-ping { 0% { box-shadow: 0 0 0 0 var(--today-glow); } 100% { box-shadow: 0 0 0 12px transparent; } }
+
+/* ---------- Lịch tháng ---------- */
+.cal-nav { display: flex; align-items: center; gap: 10px; }
+.cal-month { flex: 1; text-align: center; font-family: var(--font-display); font-size: 20px; font-weight: 700; }
+.cal { display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+.cal-wd, .cal-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-wd span { text-align: center; font-size: 12px; font-weight: 700; color: var(--ink-3); }
+.cal-days.slide-next { animation: wk-next .3s cubic-bezier(.2,.8,.2,1); }
+.cal-days.slide-prev { animation: wk-prev .3s cubic-bezier(.2,.8,.2,1); }
+.cd { display: grid; place-items: center; height: 46px; padding: 0; border: 0; border-radius: 14px; background: none; color: var(--ink); transition: background-color .15s ease, box-shadow .15s ease; }
+.cd.blank { pointer-events: none; }
+.cd .n { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; font-family: var(--font-display); font-size: 16px; font-weight: 700; line-height: 1; }
+.cd[data-st="low"] { background: var(--low-soft); }
+.cd[data-st="ok"] { background: var(--ok-soft); }
+.cd[data-st="high"] { background: var(--high-soft); }
+.cd.future .n { color: var(--ink-3); }
+@media (hover: hover) { .cd:not(.blank):not([aria-pressed="true"]):hover { box-shadow: inset 0 0 0 1.5px var(--line); } }
+.cd[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--ink); }
+.cd.is-today .n { background: var(--today); color: var(--today-ink); box-shadow: 0 5px 14px -5px var(--today-glow); }
+.cd.is-today[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--today); }
+.cal-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--ink-2); }
+.cal-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.cal-legend i { width: 14px; height: 14px; border-radius: 5px; }
+.cal-legend i[data-st="low"] { background: var(--low-soft); box-shadow: inset 0 0 0 1.5px var(--low); }
+.cal-legend i[data-st="ok"] { background: var(--ok-soft); box-shadow: inset 0 0 0 1.5px var(--ok); }
+.cal-legend i[data-st="high"] { background: var(--high-soft); box-shadow: inset 0 0 0 1.5px var(--high); }
+.cal-legend .lg-today { border-radius: 50%; background: var(--today); }
+.cal-legend .lg-sel { box-shadow: inset 0 0 0 2px var(--ink); }
+.cal-sum { font-size: 13px; color: var(--ink-2); background: var(--surface-2); border-radius: 14px; padding: 10px 12px; }
+.cal-sum b { color: var(--ink); }
 
 /* ---------- Demo banner ---------- */
 .demo { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--r-md); background: var(--sky-soft); border: 1px dashed var(--sky); font-size: 14px; }
@@ -864,7 +927,7 @@ details.how .formula { margin-top: 8px; }
 <script>
 (function () {
 'use strict';
-const APP_VERSION = '1.0.4';
+const APP_VERSION = '1.0.5';
 /* ===== Ăn Đủ — Cơ sở dữ liệu thực phẩm =====
  * Giá trị trên 100 g phần ăn được (đồ uống: 100 ml).
  * Cột: [tên, nhóm, kcal, carb (tổng, gồm xơ), đạm, béo, xơ, "khẩu phần:gam|...", "tên gọi khác"]
@@ -2140,17 +2203,33 @@ function balanceChart(keys, width) {
   return { svg: s + '</svg>', tot, days: vals.filter((v) => v != null).length };
 }
 
+function dateLabel(k) {
+  const r = relDay(k), d = dateOf(k);
+  const y = d.getFullYear() !== new Date().getFullYear() ? `, ${d.getFullYear()}` : '';
+  if (r === 'Hôm nay' || r === 'Hôm qua' || r === 'Ngày mai') return [r, longDate(k) + y];
+  return [WD[d.getDay()], `${d.getDate()} tháng ${d.getMonth() + 1}${y}`];
+}
+// Nút «Hôm nay»: tờ lịch nhỏ in số ngày hiện tại; đổi sang màu nhấn khi đang xem ngày khác
+function todayBtn(away, action = 'go-today') {
+  const t = todayKey();
+  return `<button class="today-btn${away ? ' is-away' : ''}" data-action="${action}" aria-label="Về hôm nay, ${longDate(t)}"><span class="tb-ic" aria-hidden="true"><b>${dateOf(t).getDate()}</b></span>Hôm nay</button>`;
+}
+
 function renderToday() {
   const k = UI.date, t = todayKey();
   const info = dayInfo(k);
   const anim = UI.animKey !== k;
   UI.animKey = k;
   const d0 = dateOf(k), dow = (d0.getDay() + 6) % 7, mon = addDays(k, -dow);
+  // Đổi sang tuần khác thì dải tuần trượt vào theo hướng đi
+  const slide = UI.weekMon && UI.weekMon !== mon ? (mon > UI.weekMon ? ' slide-next' : ' slide-prev') : '';
+  UI.weekMon = mon;
   const week = Array.from({ length: 7 }, (_, i) => addDays(mon, i)).map((dk) => {
-    const di = dayInfo(dk), dd = dateOf(dk);
-    return `<button class="wday ${dk === t ? 'is-today' : ''}" data-action="pick-date" data-date="${dk}" aria-pressed="${dk === k}" aria-label="${longDate(dk)}: ${ST_NAME[di.st]}">
+    const di = dayInfo(dk), dd = dateOf(dk), isT = dk === t;
+    return `<button class="wday${isT ? ' is-today' : ''}" data-action="pick-date" data-date="${dk}" aria-pressed="${dk === k}"${isT ? ' aria-current="date"' : ''} aria-label="${longDate(dk)}${isT ? ' (hôm nay)' : ''}: ${ST_NAME[di.st]}">
       ${WDS[dd.getDay()]}${miniPlate(di)}<span class="d">${dd.getDate()}</span></button>`;
   }).join('');
+  const [dTitle, dSub] = dateLabel(k);
   const name = (S.profile.name || '').trim();
   const leftTxt = !info.has ? 'Chưa ghi món nào'
     : info.st === 'high' ? `Dư ${fk(info.tot.k - info.allow)} kcal`
@@ -2161,14 +2240,14 @@ function renderToday() {
     : !S.profile.set || !S.profile.goalSet ? `<div class="demo"><p><b>${S.profile.set ? 'Đặt mục tiêu' : 'Nhập hồ sơ'}</b> để app tính lượng calo, carb, đạm, béo phù hợp riêng cho bạn.</p><button class="btn primary sm" data-action="${S.profile.set ? 'edit-goal' : 'setup'}">${S.profile.set ? 'Đặt mục tiêu' : 'Bắt đầu'}</button></div>` : '';
   $('#v-today').innerHTML = `
     <div class="topbar"><div class="wordmark"><span class="wordmark-dot" aria-hidden="true"></span>Ăn Đủ</div>
+      ${todayBtn(k !== t)}
       <button class="avatar" data-nav="profile" aria-label="Hồ sơ">${name ? esc(name[0].toUpperCase()) : ic('i-user', 'sm')}</button></div>
     <div class="datebar">
       <button class="iconbtn" data-action="shift-date" data-n="-1" aria-label="Ngày trước">${ic('i-left')}</button>
-      <button class="date-label" data-action="open-cal"><strong>${relDay(k) === 'Hôm nay' || relDay(k) === 'Hôm qua' || relDay(k) === 'Ngày mai' ? relDay(k) : WD[d0.getDay()]}</strong><span>${longDate(k)}</span></button>
-      <input type="date" class="date-input" id="date-input" value="${k}" aria-label="Chọn ngày" tabindex="-1">
+      <button class="date-label" data-action="open-cal" aria-label="Mở lịch — đang xem ${longDate(k)}"><strong>${dTitle}${ic('i-cal', 'sm')}</strong><span>${dSub}</span></button>
       <button class="iconbtn" data-action="shift-date" data-n="1" aria-label="Ngày sau">${ic('i-right')}</button>
     </div>
-    <div class="week" role="group" aria-label="Tuần này">${week}</div>
+    <div class="week${slide}" role="group" aria-label="Tuần đang xem">${week}</div>
     ${banner}
     <div class="today-grid">
       <div class="today-side">
@@ -2558,7 +2637,7 @@ function closeSheet() {
 function renderSheet() {
   const st = UI.sheet; if (!st) return;
   const body = $('#sheet-body');
-  const h = { add: addSheetHTML, food: foodSheetHTML, act: actSheetHTML, custom: customSheetHTML, backup: backupSheetHTML, me: meSheetHTML, goal: goalSheetHTML, label: labelSheetHTML }[st.type];
+  const h = { add: addSheetHTML, food: foodSheetHTML, act: actSheetHTML, custom: customSheetHTML, backup: backupSheetHTML, me: meSheetHTML, goal: goalSheetHTML, label: labelSheetHTML, cal: calSheetHTML }[st.type];
   const keep = body.dataset.type === st.type ? body.scrollTop : 0;
   body.innerHTML = h(st);
   body.dataset.type = st.type;
@@ -2572,6 +2651,38 @@ function renderSheet() {
 }
 const topBar = (title, back, extra = '') => `<div class="sheet-top">${back ? `<button class="iconbtn ghost" data-action="${back}" aria-label="Quay lại">${ic('i-left')}</button>` : ''}<h2 id="sheet-title">${title}</h2>${extra}<button class="iconbtn ghost" data-action="close-sheet" aria-label="Đóng">${ic('i-x')}</button></div>`;
 const mealSeg = (cur, action = 'sheet-meal') => `<div class="seg wide" role="group" aria-label="Chọn bữa">${MEALS.map((m) => `<button data-action="${action}" data-meal="${m.k}" aria-pressed="${cur === m.k}">${m.name.replace('Bữa ', '').replace(/^./, (c) => c.toUpperCase())}</button>`).join('')}</div>`;
+
+// -- Lịch tháng: mỗi ô phớt màu theo trạng thái ngày, hôm nay là viên tròn màu nhấn
+const WDH = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+function calSheetHTML(st) {
+  const t = todayKey(), [y, m] = st.m.split('-').map(Number);
+  const lead = (new Date(y, m - 1, 1, 12).getDay() + 6) % 7, n = new Date(y, m, 0).getDate();
+  let cells = '', logged = 0, ok = 0, elapsed = 0;
+  for (let i = 0; i < lead; i++) cells += '<span class="cd blank" aria-hidden="true"></span>';
+  for (let d = 1; d <= n; d++) {
+    const dk = `${y}-${pad(m)}-${pad(d)}`, di = dayInfo(dk), isT = dk === t;
+    if (dk <= t) { elapsed++; if (di.has) { logged++; if (di.st === 'ok') ok++; } }
+    cells += `<button class="cd${isT ? ' is-today' : ''}${dk > t ? ' future' : ''}" data-action="cal-pick" data-date="${dk}" data-st="${di.st}" aria-pressed="${dk === UI.date}"${isT ? ' aria-current="date"' : ''} aria-label="${longDate(dk)}${isT ? ' (hôm nay)' : ''}: ${ST_NAME[di.st]}"><span class="n">${d}</span></button>`;
+  }
+  const curM = t.slice(0, 7), away = st.m !== curM || UI.date !== t;
+  const sum = st.m > curM ? 'Tháng này chưa tới.'
+    : !logged ? 'Chưa ghi ngày nào trong tháng này.'
+      : `Đã ghi <b>${logged}/${elapsed}</b> ngày${st.m === curM ? ' tính đến hôm nay' : ''} · <b>${ok}</b> ngày đủ năng lượng.`;
+  const slide = st.dir ? ` slide-${st.dir}` : '';
+  st.dir = '';
+  return `${topBar('Lịch', '', todayBtn(away, 'cal-today'))}
+    <div class="cal-nav">
+      <button class="iconbtn" data-action="cal-shift" data-n="-1" aria-label="Tháng trước">${ic('i-left')}</button>
+      <strong class="cal-month" aria-live="polite">Tháng ${m}, ${y}</strong>
+      <button class="iconbtn" data-action="cal-shift" data-n="1" aria-label="Tháng sau">${ic('i-right')}</button>
+    </div>
+    <div class="cal">
+      <div class="cal-wd" aria-hidden="true">${WDH.map((w) => `<span>${w}</span>`).join('')}</div>
+      <div class="cal-days${slide}">${cells}</div>
+    </div>
+    <div class="cal-legend"><span><i class="lg-today"></i>Hôm nay</span><span><i class="lg-sel"></i>Đang xem</span><span><i data-st="low"></i>Thiếu</span><span><i data-st="ok"></i>Đủ</span><span><i data-st="high"></i>Thừa</span></div>
+    <p class="cal-sum">${sum}</p>`;
+}
 
 // -- Thêm món
 function addSheetHTML(st) {
@@ -2784,6 +2895,16 @@ function openFood(fid, opts = {}) {
   openSheet({ type: 'food', fid, g, u, meal: opts.meal || mealByClock(), date: UI.date, back: opts.back || null });
 }
 function setDate(k) { UI.date = k; if (UI.view !== 'today') go('today'); else renderToday(); }
+// «Hôm nay»: nhảy về ngày hiện tại, cuộn lên đầu và cho ô hôm nay nháy nhẹ để mắt bắt được
+function goToday() {
+  const t = todayKey();
+  if (UI.date !== t || UI.view !== 'today') setDate(t);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  requestAnimationFrame(() => {
+    const c = $('.wday.is-today'); if (!c) return;
+    c.classList.remove('flash'); void c.offsetWidth; c.classList.add('flash');
+  });
+}
 
 function applyTheme() {
   const r = document.documentElement, th = S.settings.theme;
@@ -2866,7 +2987,15 @@ document.addEventListener('click', (ev) => {
     case 'add': openAdd(el.dataset.meal); break;
     case 'shift-date': setDate(addDays(UI.date, +el.dataset.n)); break;
     case 'pick-date': setDate(el.dataset.date); break;
-    case 'open-cal': { const i = $('#date-input'); try { if (i.showPicker) i.showPicker(); else i.click(); } catch (e) { i.click(); } break; }
+    case 'open-cal': openSheet({ type: 'cal', m: UI.date.slice(0, 7), dir: '' }); break;
+    case 'cal-shift': {
+      const [y, m] = st.m.split('-').map(Number), d = new Date(y, m - 1 + (+el.dataset.n), 1, 12);
+      st.m = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; st.dir = +el.dataset.n > 0 ? 'next' : 'prev';
+      renderSheet(); break;
+    }
+    case 'cal-pick': closeSheet(); setDate(el.dataset.date); break;
+    case 'cal-today': closeSheet(); goToday(); break;
+    case 'go-today': goToday(); break;
     case 'set-view': S.settings.view = el.dataset.v; touch(null); renderToday(); break;
     case 'start-real': {
       S = blankState(); rebuildFoods(); Store.saveNow();
@@ -3244,7 +3373,6 @@ document.addEventListener('input', (ev) => {
 });
 document.addEventListener('change', (ev) => {
   const t = ev.target;
-  if (t.id === 'date-input' && t.value) setDate(t.value);
   if (t.id === 'burnback') { S.settings.burnBack = t.checked; touch(null); }
   if (t.id === 'man-save' && UI.sheet && UI.sheet.man) UI.sheet.man.save = t.checked;
   if (t.id === 'lb-past' && UI.sheet) UI.sheet.past = t.checked;

@@ -34,6 +34,16 @@ function openFood(fid, opts = {}) {
   openSheet({ type: 'food', fid, g, u, meal: opts.meal || mealByClock(), date: UI.date, back: opts.back || null });
 }
 function setDate(k) { UI.date = k; if (UI.view !== 'today') go('today'); else renderToday(); }
+// «Hôm nay»: nhảy về ngày hiện tại, cuộn lên đầu và cho ô hôm nay nháy nhẹ để mắt bắt được
+function goToday() {
+  const t = todayKey();
+  if (UI.date !== t || UI.view !== 'today') setDate(t);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  requestAnimationFrame(() => {
+    const c = $('.wday.is-today'); if (!c) return;
+    c.classList.remove('flash'); void c.offsetWidth; c.classList.add('flash');
+  });
+}
 
 function applyTheme() {
   const r = document.documentElement, th = S.settings.theme;
@@ -116,7 +126,15 @@ document.addEventListener('click', (ev) => {
     case 'add': openAdd(el.dataset.meal); break;
     case 'shift-date': setDate(addDays(UI.date, +el.dataset.n)); break;
     case 'pick-date': setDate(el.dataset.date); break;
-    case 'open-cal': { const i = $('#date-input'); try { if (i.showPicker) i.showPicker(); else i.click(); } catch (e) { i.click(); } break; }
+    case 'open-cal': openSheet({ type: 'cal', m: UI.date.slice(0, 7), dir: '' }); break;
+    case 'cal-shift': {
+      const [y, m] = st.m.split('-').map(Number), d = new Date(y, m - 1 + (+el.dataset.n), 1, 12);
+      st.m = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; st.dir = +el.dataset.n > 0 ? 'next' : 'prev';
+      renderSheet(); break;
+    }
+    case 'cal-pick': closeSheet(); setDate(el.dataset.date); break;
+    case 'cal-today': closeSheet(); goToday(); break;
+    case 'go-today': goToday(); break;
     case 'set-view': S.settings.view = el.dataset.v; touch(null); renderToday(); break;
     case 'start-real': {
       S = blankState(); rebuildFoods(); Store.saveNow();
@@ -494,7 +512,6 @@ document.addEventListener('input', (ev) => {
 });
 document.addEventListener('change', (ev) => {
   const t = ev.target;
-  if (t.id === 'date-input' && t.value) setDate(t.value);
   if (t.id === 'burnback') { S.settings.burnBack = t.checked; touch(null); }
   if (t.id === 'man-save' && UI.sheet && UI.sheet.man) UI.sheet.man.save = t.checked;
   if (t.id === 'lb-past' && UI.sheet) UI.sheet.past = t.checked;
